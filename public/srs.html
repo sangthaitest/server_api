@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRS Transactions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+            color: #222;
+            background: #f7f7f7;
+        }
+
+        h1 {
+            margin: 0 0 16px;
+            font-size: 24px;
+        }
+
+        .status {
+            margin-bottom: 12px;
+            color: #555;
+        }
+
+        .error {
+            color: #b00020;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px 10px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background: #eee;
+        }
+
+        tr:nth-child(even) td {
+            background: #fafafa;
+        }
+    </style>
+</head>
+<body>
+    <h1>SRS Transactions</h1>
+    <p id="status" class="status">Loading...</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Transaction ID</th>
+                <th>Version</th>
+                <th>Type</th>
+                <th>Approval</th>
+                <th>Merchant</th>
+                <th>Terminal</th>
+                <th>Amount</th>
+                <th>Device ID</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody id="transactions-body"></tbody>
+    </table>
+    <script>
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        fetch("/api/srs/transactions")
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error("Failed to load transactions");
+                }
+                return response.json();
+            })
+            .then(function (transactions) {
+                var status = document.getElementById("status");
+                var tbody = document.getElementById("transactions-body");
+
+                if (!Array.isArray(transactions) || transactions.length === 0) {
+                    status.textContent = "No transactions found.";
+                    return;
+                }
+
+                status.textContent = transactions.length + " transaction(s)";
+                tbody.innerHTML = transactions.map(function (item) {
+                    return "<tr>" +
+                        "<td>" + escapeHtml(item.transactionId) + "</td>" +
+                        "<td>" + escapeHtml(item.version) + "</td>" +
+                        "<td>" + escapeHtml(item.transactionType) + "</td>" +
+                        "<td>" + escapeHtml(item.approvalCode) + "</td>" +
+                        "<td>" + escapeHtml(item.merchantName) + "</td>" +
+                        "<td>" + escapeHtml(item.terminalId) + "</td>" +
+                        "<td>" + escapeHtml(item.totalAmount) + "</td>" +
+                        "<td>" + escapeHtml(item.deviceId) + "</td>" +
+                        "<td>" + escapeHtml(item.createdAt) + "</td>" +
+                    "</tr>";
+                }).join("");
+            })
+            .catch(function () {
+                var status = document.getElementById("status");
+                status.className = "status error";
+                status.textContent = "Failed to load transactions.";
+            });
+    </script>
+</body>
+</html>

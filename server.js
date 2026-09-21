@@ -1,11 +1,31 @@
 const path = require("path");
 const express = require("express");
 const db = require("./db");
+const srsApi = require("./srs-api");
 
 const app = express();
-const PORT = 3000;
+const PORT = 21501;
 
 app.use(express.json());
+
+app.use((req, res, next) => {
+    const started = Date.now();
+
+    res.on("finish", () => {
+        console.log(
+            new Date().toISOString(),
+            req.method,
+            req.originalUrl,
+            res.statusCode,
+            (Date.now() - started) + "ms",
+            getClientIp(req)
+        );
+    });
+
+    next();
+});
+
+app.use(srsApi);
 
 function getClientIp(req) {
     let ip = req.ip || (req.socket && req.socket.remoteAddress) || "";
@@ -216,6 +236,11 @@ app.get("/devices", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "devices.html"));
 });
 
-app.listen(PORT, () => {
+app.get("/srs", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "srs.html"));
+});
+
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`API server running at http://localhost:${PORT}`);
+    console.log(`LAN: http://10.247.42.215:${PORT}`);
 });
