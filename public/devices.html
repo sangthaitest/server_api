@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Devices</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+            color: #222;
+            background: #f7f7f7;
+        }
+
+        h1 {
+            margin: 0 0 16px;
+            font-size: 24px;
+        }
+
+        .status {
+            margin-bottom: 12px;
+            color: #555;
+        }
+
+        .error {
+            color: #b00020;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px 10px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background: #eee;
+        }
+
+        tr:nth-child(even) td {
+            background: #fafafa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Devices</h1>
+    <p id="status" class="status">Loading...</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Device ID</th>
+                <th>Manufacturer</th>
+                <th>Model</th>
+                <th>Android</th>
+                <th>SDK</th>
+                <th>App Version</th>
+                <th>IP</th>
+                <th>Last Update</th>
+            </tr>
+        </thead>
+        <tbody id="devices-body"></tbody>
+    </table>
+    <script>
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        fetch("/api/devices")
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error("Failed to load devices");
+                }
+                return response.json();
+            })
+            .then(function (devices) {
+                var status = document.getElementById("status");
+                var tbody = document.getElementById("devices-body");
+
+                if (!Array.isArray(devices) || devices.length === 0) {
+                    status.textContent = "No devices found.";
+                    return;
+                }
+
+                status.textContent = devices.length + " device(s)";
+                tbody.innerHTML = devices.map(function (device) {
+                    return "<tr>" +
+                        "<td>" + escapeHtml(device.deviceId) + "</td>" +
+                        "<td>" + escapeHtml(device.manufacturer) + "</td>" +
+                        "<td>" + escapeHtml(device.model) + "</td>" +
+                        "<td>" + escapeHtml(device.androidVersion) + "</td>" +
+                        "<td>" + escapeHtml(device.sdkVersion) + "</td>" +
+                        "<td>" + escapeHtml(device.appVersion) + "</td>" +
+                        "<td>" + escapeHtml(device.ipAddress) + "</td>" +
+                        "<td>" + escapeHtml(device.updatedAt) + "</td>" +
+                    "</tr>";
+                }).join("");
+            })
+            .catch(function () {
+                var status = document.getElementById("status");
+                status.className = "status error";
+                status.textContent = "Failed to load devices.";
+            });
+    </script>
+</body>
+</html>
