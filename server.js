@@ -240,7 +240,7 @@ app.get("/srs", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "srs.html"));
 });
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen({ port: PORT, host: "::", ipv6Only: false }, () => {
     console.log(`API server running at http://localhost:${PORT}`);
     console.log(`LAN: http://10.247.42.215:${PORT}`);
 });

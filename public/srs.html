@@ -4,7 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SRS Transactions</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: Arial, sans-serif;
             margin: 24px;
@@ -26,48 +33,293 @@
             color: #b00020;
         }
 
-        table {
+        table.list {
             width: 100%;
             border-collapse: collapse;
             background: #fff;
         }
 
-        th, td {
+        table.list th,
+        table.list td {
             border: 1px solid #ccc;
             padding: 8px 10px;
             text-align: left;
             font-size: 14px;
         }
 
-        th {
+        table.list th {
             background: #eee;
         }
 
-        tr:nth-child(even) td {
+        table.list tbody tr {
+            cursor: pointer;
+        }
+
+        table.list tbody tr:nth-child(even) td {
             background: #fafafa;
+        }
+
+        table.list tbody tr:hover td {
+            background: #e8f1ff;
+        }
+
+        table.list a {
+            color: #1a4f9c;
+            text-decoration: none;
+        }
+
+        table.list a:hover {
+            text-decoration: underline;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 12px;
+            color: #1a4f9c;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .detail-page {
+            margin: -24px;
+            min-height: 100vh;
+            background: #eeecec;
+            padding: 16px 12px 40px;
+        }
+
+        .detail-meta {
+            max-width: 520px;
+            margin: 0 auto 12px;
+            color: #555;
+            font-size: 12px;
+        }
+
+        .receipt {
+            max-width: 520px;
+            margin: 0 auto;
+            background: #eeecec;
+            color: #000;
+            font-family: "Oswald", "Roboto", Arial, sans-serif;
+        }
+
+        .receipt-logo {
+            padding: 28px 12px 20px;
+            text-align: center;
+        }
+
+        .receipt-logo-name {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            line-height: 1.1;
+        }
+
+        .receipt-logo-sub {
+            margin-top: 4px;
+            font-size: 12px;
+            letter-spacing: 1px;
+            color: #333;
+        }
+
+        .receipt-rule {
+            height: 5px;
+            background: #000;
+        }
+
+        .receipt-body {
+            padding: 10px 8px;
+        }
+
+        .row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+            line-height: 1.3;
+        }
+
+        .row + .row {
+            margin-top: 1px;
+        }
+
+        .pair {
+            gap: 12px;
+        }
+
+        .col {
+            display: flex;
+            flex: 1;
+            min-width: 0;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .label {
+            font-family: "Oswald", Arial, sans-serif;
+            font-size: 14px;
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .value {
+            font-family: "Roboto", Arial, sans-serif;
+            font-size: 13px;
+            text-align: right;
+            word-break: break-word;
+            flex: 1;
+        }
+
+        .value.left {
+            text-align: left;
+        }
+
+        .trans-type {
+            display: block;
+            padding: 12px 0 6px;
+            text-align: center;
+            font-family: "Oswald", Arial, sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .amount-row {
+            margin-top: 2px;
+            font-weight: 600;
+        }
+
+        .amount-row .label,
+        .amount-row .value {
+            font-family: "Oswald", Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .amount-row.first {
+            margin-top: 14px;
+        }
+
+        .pair .value {
+            white-space: nowrap;
+        }
+
+        .emv-row {
+            justify-content: flex-start;
+            gap: 8px;
+        }
+
+        .emv-row .value {
+            text-align: left;
+            flex: 0 1 auto;
+        }
+
+        .add-info {
+            white-space: pre-line;
+            margin-top: 8px;
+            font-family: "Roboto", Arial, sans-serif;
+            font-size: 13px;
+        }
+
+        .sign-block {
+            padding-top: 8px;
+        }
+
+        .pin-ok,
+        .sign-title,
+        .no-sign {
+            font-family: "Oswald", Arial, sans-serif;
+            font-size: 14px;
+        }
+
+        .pin-ok {
+            text-align: center;
+            margin-bottom: 6px;
+        }
+
+        .sign-image {
+            display: block;
+            width: 100%;
+            max-height: 150px;
+            object-fit: contain;
+            margin-top: 6px;
+            background: #fff;
+        }
+
+        .no-sign {
+            text-align: center;
+            margin-top: 8px;
+        }
+
+        .receipt-footer {
+            padding: 20px 24px;
+            text-align: center;
+            font-family: "Oswald", Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.35;
         }
     </style>
 </head>
 <body>
-    <h1>SRS Transactions</h1>
-    <p id="status" class="status">Loading...</p>
-    <table>
-        <thead>
-            <tr>
-                <th>Transaction ID</th>
-                <th>Version</th>
-                <th>Type</th>
-                <th>Approval</th>
-                <th>Merchant</th>
-                <th>Terminal</th>
-                <th>Amount</th>
-                <th>Device ID</th>
-                <th>Created</th>
-            </tr>
-        </thead>
-        <tbody id="transactions-body"></tbody>
-    </table>
+    <div id="list-view">
+        <h1>SRS Transactions</h1>
+        <p id="status" class="status">Loading...</p>
+        <table class="list">
+            <thead>
+                <tr>
+                    <th>Transaction ID</th>
+                    <th>Version</th>
+                    <th>Type</th>
+                    <th>Approval</th>
+                    <th>Merchant</th>
+                    <th>Terminal</th>
+                    <th>Amount</th>
+                    <th>Device ID</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody id="transactions-body"></tbody>
+        </table>
+    </div>
+
+    <div id="detail-view" class="detail-page hidden">
+        <div class="detail-meta">
+            <a class="back-link" href="/srs">← SRS Transactions</a>
+            <div id="detail-status" class="status">Loading...</div>
+        </div>
+        <div id="receipt-root" class="receipt"></div>
+    </div>
+
     <script>
+        var RID_VCCS = "A000000727";
+        var NO_SIGN_TEXTS = ["NO REQUIRED", "KHÔNG YÊU CẦU", "NO SIGNATURE REQUIRED"];
+        var CURRENCY_BY_CODE = {
+            "704": "VND",
+            "840": "USD",
+            "156": "CNY",
+            "356": "INR",
+            "116": "KHR",
+            "410": "KRW",
+            "702": "SGD",
+            "764": "THB",
+            "784": "THB"
+        };
+        var BRANCH_NAMES = {
+            "35": "VIETCOMBANK",
+            "5": "BIDV",
+            "10": "EXIMBANK",
+            "37": "VIETINBANK",
+            "18": "MBBANK",
+            "44": "PAYDI"
+        };
+
         function escapeHtml(value) {
             return String(value)
                 .replace(/&/g, "&amp;")
@@ -76,42 +328,300 @@
                 .replace(/"/g, "&quot;");
         }
 
-        fetch("/api/srs/transactions")
-            .then(function (response) {
-                if (!response.ok) {
-                    throw new Error("Failed to load transactions");
-                }
-                return response.json();
-            })
-            .then(function (transactions) {
-                var status = document.getElementById("status");
-                var tbody = document.getElementById("transactions-body");
+        function text(value) {
+            if (value == null) {
+                return "";
+            }
+            return escapeHtml(String(value));
+        }
 
-                if (!Array.isArray(transactions) || transactions.length === 0) {
-                    status.textContent = "No transactions found.";
-                    return;
-                }
+        function selectedId() {
+            return new URLSearchParams(window.location.search).get("id");
+        }
 
-                status.textContent = transactions.length + " transaction(s)";
-                tbody.innerHTML = transactions.map(function (item) {
-                    return "<tr>" +
-                        "<td>" + escapeHtml(item.transactionId) + "</td>" +
-                        "<td>" + escapeHtml(item.version) + "</td>" +
-                        "<td>" + escapeHtml(item.transactionType) + "</td>" +
-                        "<td>" + escapeHtml(item.approvalCode) + "</td>" +
-                        "<td>" + escapeHtml(item.merchantName) + "</td>" +
-                        "<td>" + escapeHtml(item.terminalId) + "</td>" +
-                        "<td>" + escapeHtml(item.totalAmount) + "</td>" +
-                        "<td>" + escapeHtml(item.deviceId) + "</td>" +
-                        "<td>" + escapeHtml(item.createdAt) + "</td>" +
-                    "</tr>";
-                }).join("");
-            })
-            .catch(function () {
-                var status = document.getElementById("status");
-                status.className = "status error";
-                status.textContent = "Failed to load transactions.";
-            });
+        function isVoidType(transactionType) {
+            return String(transactionType || "").toUpperCase().indexOf("VOID") === 0;
+        }
+
+        function currencyName(code) {
+            if (code == null || String(code) === "") {
+                return "";
+            }
+            var mapped = CURRENCY_BY_CODE[String(code)];
+            return mapped || String(code);
+        }
+
+        function formatAmount(receipt, value) {
+            if (value == null || String(value).trim() === "") {
+                return "";
+            }
+            var minus = isVoidType(receipt.transactionType) ? "-" : "";
+            var currency = currencyName(receipt.currencyCode);
+            return (currency ? currency + " " : "") + minus + String(value);
+        }
+
+        function hasTipProcessing(receipt) {
+            return receipt.tipAmount != null && String(receipt.tipAmount) !== "";
+        }
+
+        function parseEmv(emvTag) {
+            var empty = { aid: "", app: "", tc: "", arqc: "", hasChip: false };
+            if (emvTag == null || String(emvTag).trim() === "") {
+                return empty;
+            }
+            var parts = String(emvTag).split("=");
+            var aid = parts[0] || "";
+            var app = parts[1] || "";
+            var third = parts[2] || "";
+            var isVccs = aid.indexOf(RID_VCCS) !== -1;
+            return {
+                aid: aid,
+                app: app,
+                tc: isVccs ? "" : third,
+                arqc: isVccs ? third : "",
+                hasChip: true
+            };
+        }
+
+        function hexToDataUrl(hex) {
+            if (typeof hex !== "string") {
+                return "";
+            }
+            var clean = hex.replace(/\s+/g, "");
+            if (clean.length < 16 || clean.length % 2 !== 0 || !/^[0-9A-Fa-f]+$/.test(clean)) {
+                return "";
+            }
+            var prefix = clean.slice(0, 8).toUpperCase();
+            var mime = "";
+            if (prefix === "89504E47") {
+                mime = "image/png";
+            } else if (clean.slice(0, 6).toUpperCase() === "FFD8FF") {
+                mime = "image/jpeg";
+            } else {
+                return "";
+            }
+            var bytes = new Uint8Array(clean.length / 2);
+            for (var i = 0; i < bytes.length; i++) {
+                bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+            }
+            var binary = "";
+            for (var j = 0; j < bytes.length; j++) {
+                binary += String.fromCharCode(bytes[j]);
+            }
+            return "data:" + mime + ";base64," + btoa(binary);
+        }
+
+        function isNoSignRequired(description) {
+            var desc = String(description || "").trim().toUpperCase();
+            return NO_SIGN_TEXTS.indexOf(desc) !== -1;
+        }
+
+        function merchantAddress(receipt) {
+            return [receipt.address1, receipt.address2].filter(function (part) {
+                return part != null && String(part).trim() !== "";
+            }).join(" ");
+        }
+
+        function additionalInfoText(value) {
+            if (value == null || String(value).trim() === "") {
+                return "";
+            }
+            return String(value).split(";").join("\n");
+        }
+
+        function fieldRow(label, value, extraClass) {
+            return "<div class=\"row " + (extraClass || "") + "\"><span class=\"label\">" + label + "</span><span class=\"value\">" + text(value) + "</span></div>";
+        }
+
+        function pairRow(leftLabel, leftValue, rightLabel, rightValue) {
+            return "<div class=\"row pair\">" +
+                "<div class=\"col\"><span class=\"label\">" + leftLabel + "</span><span class=\"value\">" + text(leftValue) + "</span></div>" +
+                "<div class=\"col\"><span class=\"label\">" + rightLabel + "</span><span class=\"value\">" + text(rightValue) + "</span></div>" +
+            "</div>";
+        }
+
+        function renderReceipt(item) {
+            var receipt = item.receipt || {};
+            var emv = parseEmv(receipt.emvTag);
+            var signatureUrl = hexToDataUrl(receipt.signature);
+            var noSign = isNoSignRequired(receipt.description);
+            var branchName = BRANCH_NAMES[String(item.code || receipt.branchId || "")] || "";
+            var showTipRows = hasTipProcessing(receipt);
+            var addInfo = additionalInfoText(receipt.additionalInfo);
+            var html = "";
+
+            html += "<div class=\"receipt-logo\">";
+            html += "<div class=\"receipt-logo-name\">" + text(branchName || receipt.merchantName || "e-RECEIPT") + "</div>";
+            if (branchName) {
+                html += "<div class=\"receipt-logo-sub\">e-RECEIPT</div>";
+            }
+            html += "</div>";
+            html += "<div class=\"receipt-rule\"></div>";
+            html += "<div class=\"receipt-body\">";
+
+            html += fieldRow("MER. NAME:", receipt.merchantName);
+            html += fieldRow("MER. ADDRESS:", merchantAddress(receipt));
+            html += pairRow("TID:", receipt.terminalId, "MID:", receipt.merchantId);
+            html += "<div class=\"row pair\">" +
+                "<div class=\"col\"><span class=\"label\">CARD:</span><span class=\"value left\">" + text(receipt.cardType) + "</span></div>" +
+                "<div class=\"col\"><span class=\"value\">" + text(receipt.cardNumber) + "</span></div>" +
+            "</div>";
+            html += fieldRow("NAME:", receipt.embossingName);
+            html += fieldRow("EXPIRE DATE:", receipt.expiryDate);
+            html += "<div class=\"trans-type\">" + text(receipt.transactionType) + "</div>";
+            html += pairRow("BATCH:", receipt.batchNumber, "INVOICE:", receipt.invoice);
+            html += pairRow("DATE:", receipt.date, "TIME:", receipt.time);
+            html += pairRow("REF NO:", receipt.referenceNumber, "APPR. CODE:", receipt.approvalCode);
+
+            if (showTipRows) {
+                html += fieldRow("BASE:", formatAmount(receipt, receipt.baseAmount), "amount-row first");
+                html += fieldRow("TIP:", formatAmount(receipt, receipt.tipAmount), "amount-row");
+                html += fieldRow("TOTAL", formatAmount(receipt, receipt.totalAmount), "amount-row");
+            } else {
+                html += fieldRow("TOTAL", formatAmount(receipt, receipt.totalAmount), "amount-row first");
+            }
+
+            if (emv.hasChip) {
+                var emvFirst = "emv-row first";
+                if (emv.app) {
+                    html += fieldRow("APP:", emv.app, emvFirst);
+                    emvFirst = "emv-row";
+                }
+                if (emv.aid) {
+                    html += fieldRow("AID:", emv.aid, emvFirst);
+                    emvFirst = "emv-row";
+                }
+                if (emv.arqc) {
+                    html += fieldRow("ARQC:", emv.arqc, emvFirst);
+                    emvFirst = "emv-row";
+                }
+                if (emv.tc) {
+                    html += fieldRow("TC :", emv.tc, emvFirst);
+                }
+            }
+
+            if (addInfo) {
+                html += "<div class=\"add-info\">" + text(addInfo) + "</div>";
+            }
+
+            html += "<div class=\"sign-block\">";
+            html += "<div class=\"sign-title\">CARDHOLDER SIGNATURE</div>";
+            if (signatureUrl) {
+                html += "<img class=\"sign-image\" alt=\"Cardholder signature\" src=\"" + signatureUrl + "\">";
+            }
+            if (noSign) {
+                html += "<div class=\"no-sign\">" + text(receipt.description) + "</div>";
+            }
+            html += "</div>";
+            html += "</div>";
+
+            html += "<div class=\"receipt-rule\"></div>";
+            html += "<div class=\"receipt-footer\">I ACKNOWLEDGE SATISFACTORY RECEIPT OF RELATIVE GOODS/SERVICES</div>";
+
+            return html;
+        }
+
+        function showList() {
+            document.getElementById("list-view").classList.remove("hidden");
+            document.getElementById("detail-view").classList.add("hidden");
+            document.title = "SRS Transactions";
+        }
+
+        function showDetail() {
+            document.getElementById("list-view").classList.add("hidden");
+            document.getElementById("detail-view").classList.remove("hidden");
+            document.title = "SRS Receipt";
+        }
+
+        function loadList() {
+            showList();
+            fetch("/api/srs/transactions")
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("Failed to load transactions");
+                    }
+                    return response.json();
+                })
+                .then(function (transactions) {
+                    var status = document.getElementById("status");
+                    var tbody = document.getElementById("transactions-body");
+
+                    if (!Array.isArray(transactions) || transactions.length === 0) {
+                        status.textContent = "No transactions found.";
+                        tbody.innerHTML = "";
+                        return;
+                    }
+
+                    status.textContent = transactions.length + " transaction(s)";
+                    tbody.innerHTML = transactions.map(function (item) {
+                        var href = "/srs?id=" + encodeURIComponent(item.transactionId);
+                        return "<tr data-id=\"" + escapeHtml(item.transactionId) + "\">" +
+                            "<td><a href=\"" + href + "\">" + escapeHtml(item.transactionId) + "</a></td>" +
+                            "<td>" + escapeHtml(item.version) + "</td>" +
+                            "<td>" + escapeHtml(item.transactionType) + "</td>" +
+                            "<td>" + escapeHtml(item.approvalCode) + "</td>" +
+                            "<td>" + escapeHtml(item.merchantName) + "</td>" +
+                            "<td>" + escapeHtml(item.terminalId) + "</td>" +
+                            "<td>" + escapeHtml(item.totalAmount) + "</td>" +
+                            "<td>" + escapeHtml(item.deviceId) + "</td>" +
+                            "<td>" + escapeHtml(item.createdAt) + "</td>" +
+                        "</tr>";
+                    }).join("");
+                })
+                .catch(function () {
+                    var status = document.getElementById("status");
+                    status.className = "status error";
+                    status.textContent = "Failed to load transactions.";
+                });
+        }
+
+        function loadDetail(transactionId) {
+            showDetail();
+            var status = document.getElementById("detail-status");
+            var root = document.getElementById("receipt-root");
+            status.className = "status";
+            status.textContent = "Loading...";
+            root.innerHTML = "";
+
+            fetch("/api/srs/transactions/" + encodeURIComponent(transactionId))
+                .then(function (response) {
+                    if (response.status === 404) {
+                        throw new Error("Transaction not found.");
+                    }
+                    if (!response.ok) {
+                        throw new Error("Failed to load receipt.");
+                    }
+                    return response.json();
+                })
+                .then(function (item) {
+                    status.textContent = item.transactionId +
+                        " · " + (item.version || "") +
+                        " · " + (item.createdAt || "");
+                    root.innerHTML = renderReceipt(item);
+                })
+                .catch(function (err) {
+                    status.className = "status error";
+                    status.textContent = err.message || "Failed to load receipt.";
+                });
+        }
+
+        document.getElementById("transactions-body").addEventListener("click", function (event) {
+            if (event.target.closest("a")) {
+                return;
+            }
+            var row = event.target.closest("tr");
+            if (!row || !row.getAttribute("data-id")) {
+                return;
+            }
+            window.location.href = "/srs?id=" + encodeURIComponent(row.getAttribute("data-id"));
+        });
+
+        var id = selectedId();
+        if (id) {
+            loadDetail(id);
+        } else {
+            loadList();
+        }
     </script>
 </body>
 </html>

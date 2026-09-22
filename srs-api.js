@@ -32,11 +32,64 @@ function v2ErrorPayload(message) {
     return JSON.stringify({ Error: message });
 }
 
+function receiptField(receipt, key) {
+    if (!receipt || receipt[key] == null) {
+        return "";
+    }
+
+    return String(receipt[key]);
+}
+
+function isSameReceipt(left, right) {
+    if (!left || !right) {
+        return false;
+    }
+
+    return receiptField(left, "transactionType") === receiptField(right, "transactionType")
+        && receiptField(left, "approvalCode") === receiptField(right, "approvalCode")
+        && receiptField(left, "currentTime") === receiptField(right, "currentTime")
+        && receiptField(left, "terminalId") === receiptField(right, "terminalId")
+        && receiptField(left, "invoice") === receiptField(right, "invoice")
+        && receiptField(left, "totalAmount") === receiptField(right, "totalAmount")
+        && receiptField(left, "batchNumber") === receiptField(right, "batchNumber");
+}
+
+function findExistingTransaction(deviceId, receipt) {
+    const rows = srsDb.prepare(`
+        SELECT transactionId, deviceId, approvalCode, receiptJson
+        FROM srs_transactions
+        WHERE deviceId = ?
+        ORDER BY id DESC
+        LIMIT 100
+    `).all(deviceId == null ? "" : String(deviceId));
+
+    for (let i = 0; i < rows.length; i++) {
+        if (isSameReceipt(parseReceiptJson(rows[i].receiptJson), receipt)) {
+            return rows[i];
+        }
+    }
+
+    return null;
+}
+
 function saveTransaction(deviceId, approvalCode, code, version, receipt) {
-    const transactionId = srsCrypto.generateTransactionId();
     const receiptApproval = receipt && receipt.approvalCode != null && String(receipt.approvalCode) !== ""
         ? String(receipt.approvalCode)
         : (approvalCode == null ? "0" : String(approvalCode));
+    const responseApproval = approvalCode != null && String(approvalCode).trim() !== ""
+        ? String(approvalCode).trim()
+        : receiptApproval;
+    const existing = findExistingTransaction(deviceId, receipt);
+
+    if (existing) {
+        console.log("SRS transaction duplicate ignored", existing.transactionId, receiptApproval);
+        return {
+            transactionId: existing.transactionId,
+            approvalCode: responseApproval
+        };
+    }
+
+    const transactionId = srsCrypto.generateTransactionId();
     const receiptJson = JSON.stringify(receipt);
 
     srsDb.prepare(`
@@ -54,7 +107,7 @@ function saveTransaction(deviceId, approvalCode, code, version, receipt) {
 
     return {
         transactionId: transactionId,
-        approvalCode: receiptApproval
+        approvalCode: responseApproval
     };
 }
 
@@ -64,6 +117,24 @@ function parseReceiptJson(receiptJson) {
     } catch (err) {
         return null;
     }
+}
+
+function mapTransaction(row) {
+    const receipt = parseReceiptJson(row.receiptJson);
+
+    return {
+        transactionId: row.transactionId,
+        deviceId: row.deviceId,
+        approvalCode: row.approvalCode,
+        code: row.code,
+        version: row.version,
+        createdAt: row.createdAt,
+        merchantName: receipt && receipt.merchantName != null ? receipt.merchantName : "",
+        terminalId: receipt && receipt.terminalId != null ? receipt.terminalId : "",
+        transactionType: receipt && receipt.transactionType != null ? receipt.transactionType : "",
+        totalAmount: receipt && receipt.totalAmount != null ? receipt.totalAmount : "",
+        receipt: receipt
+    };
 }
 
 router.post("/saveTransaction/v2", (req, res) => {
@@ -344,27 +415,33 @@ router.get("/api/srs/transactions", (req, res) => {
             ORDER BY id DESC
         `).all();
 
-        const transactions = rows.map(function (row) {
-            const receipt = parseReceiptJson(row.receiptJson);
-
-            return {
-                transactionId: row.transactionId,
-                deviceId: row.deviceId,
-                approvalCode: row.approvalCode,
-                code: row.code,
-                version: row.version,
-                createdAt: row.createdAt,
-                merchantName: receipt && receipt.merchantName != null ? receipt.merchantName : "",
-                terminalId: receipt && receipt.terminalId != null ? receipt.terminalId : "",
-                transactionType: receipt && receipt.transactionType != null ? receipt.transactionType : "",
-                totalAmount: receipt && receipt.totalAmount != null ? receipt.totalAmount : "",
-                receipt: receipt
-            };
-        });
-
-        res.json(transactions);
+        res.json(rows.map(mapTransaction));
     } catch (err) {
         res.status(500).json({ error: "Failed to read transactions" });
+    }
+});
+
+router.get("/api/srs/transactions/:transactionId", (req, res) => {
+    const transactionId = req.params.transactionId == null ? "" : String(req.params.transactionId).trim();
+
+    if (transactionId === "") {
+        return res.status(400).json({ error: "transactionId is required" });
+    }
+
+    try {
+        const row = srsDb.prepare(`
+            SELECT transactionId, deviceId, approvalCode, code, version, receiptJson, createdAt
+            FROM srs_transactions
+            WHERE transactionId = ?
+        `).get(transactionId);
+
+        if (!row) {
+            return res.status(404).json({ error: "Transaction not found" });
+        }
+
+        res.json(mapTransaction(row));
+    } catch (err) {
+        res.status(500).json({ error: "Failed to read transaction" });
     }
 });
 
