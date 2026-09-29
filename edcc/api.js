@@ -243,12 +243,33 @@ function finishHistory(fields, outcome, rawMessage) {
         return;
     }
 
+    const invoice = fields.INVOICE || "";
+    const updatedAt = nowIso();
+
+    if (invoice !== "") {
+        edccDb.prepare(`
+            UPDATE edcc_history
+            SET updatedAt = ?, outcome = ?, responseCode = ?, errorCode = ?, txnCode = ?, resultMessage = ?, invoice = ?
+            WHERE txnKey = ? AND outcome = 'pending'
+        `).run(
+            updatedAt,
+            outcome,
+            fields.RESPONSE_CODE || "",
+            fields.ERROR || "",
+            fields.TXN_CODE || "",
+            rawMessage || "",
+            invoice,
+            txnKey
+        );
+        return;
+    }
+
     edccDb.prepare(`
         UPDATE edcc_history
         SET updatedAt = ?, outcome = ?, responseCode = ?, errorCode = ?, txnCode = ?, resultMessage = ?
         WHERE txnKey = ? AND outcome = 'pending'
     `).run(
-        nowIso(),
+        updatedAt,
         outcome,
         fields.RESPONSE_CODE || "",
         fields.ERROR || "",
