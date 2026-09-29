@@ -268,6 +268,7 @@
     </style>
 </head>
 <body>
+    <p style="margin:0 0 16px;"><a href="/logout">Đăng xuất</a></p>
     <div id="list-view">
         <h1>SRS Transactions</h1>
         <p id="status" class="status">Loading...</p>
@@ -298,6 +299,16 @@
     </div>
 
     <script>
+        var nativeFetch = window.fetch;
+        window.fetch = function (url, options) {
+            return nativeFetch(url, options).then(function (response) {
+                if (response.status === 401) {
+                    window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search);
+                }
+                return response;
+            });
+        };
+
         var RID_VCCS = "A000000727";
         var NO_SIGN_TEXTS = ["NO REQUIRED", "KHÔNG YÊU CẦU", "NO SIGNATURE REQUIRED"];
         var CURRENCY_BY_CODE = {

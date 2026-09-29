@@ -1,12 +1,35 @@
+const crypto = require("crypto");
 const path = require("path");
 const express = require("express");
 const db = require("./db");
-const srsApi = require("./srs-api");
+const srsApi = require("./srs/api");
+const qrApi = require("./qr/api");
+const edcc = require("./edcc/api");
+
+const LAB_USER = "admin";
+const LAB_PASS = "admin";
+const SESSION_COOKIE = "lab_session";
+const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const sessions = new Map();
 
 const app = express();
 const PORT = 21501;
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+app.use((req, res, next) => {
+    const queryIndex = req.url.indexOf("?");
+    const pathPart = queryIndex === -1 ? req.url : req.url.slice(0, queryIndex);
+    const query = queryIndex === -1 ? "" : req.url.slice(queryIndex);
+    const normalized = pathPart.replace(/\/{2,}/g, "/");
+
+    if (normalized !== pathPart) {
+        req.url = normalized + query;
+    }
+
+    next();
+});
 
 app.use((req, res, next) => {
     const started = Date.now();
@@ -25,7 +48,117 @@ app.use((req, res, next) => {
     next();
 });
 
+app.use(requireLabAuth);
 app.use(srsApi);
+app.use(qrApi);
+app.use(edcc.router);
+edcc.start();
+
+function readCookie(req, name) {
+    const header = req.headers.cookie || "";
+    const parts = header.split(";");
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const index = part.indexOf("=");
+
+        if (index === -1) {
+            continue;
+        }
+
+        if (part.slice(0, index).trim() === name) {
+            return decodeURIComponent(part.slice(index + 1).trim());
+        }
+    }
+
+    return "";
+}
+
+function sameSecret(leftValue, rightValue) {
+    const left = Buffer.from(String(leftValue));
+    const right = Buffer.from(String(rightValue));
+
+    if (left.length !== right.length) {
+        return false;
+    }
+
+    return crypto.timingSafeEqual(left, right);
+}
+
+function sessionToken(req) {
+    const token = readCookie(req, SESSION_COOKIE);
+
+    if (token === "") {
+        return "";
+    }
+
+    const session = sessions.get(token);
+
+    if (!session) {
+        return "";
+    }
+
+    if (session.expiresAt <= Date.now()) {
+        sessions.delete(token);
+        return "";
+    }
+
+    return token;
+}
+
+function isLabPath(urlPath) {
+    return urlPath === "/srs" || urlPath === "/qr" || urlPath === "/edcc" || urlPath === "/history" || urlPath.startsWith("/api/srs/") || urlPath.startsWith("/api/qr/") || urlPath.startsWith("/api/edcc/");
+}
+
+function safeNext(value) {
+    if (typeof value !== "string" || value.length > 200 || value.includes("\\") || value.includes("//")) {
+        return "/srs";
+    }
+
+    if (value === "/srs" || value === "/qr" || value === "/edcc" || value === "/history") {
+        return value;
+    }
+
+    if (/^\/srs\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/qr\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/edcc\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/history\?[A-Za-z0-9._~%=&-]*$/.test(value)) {
+        return value;
+    }
+
+    return "/srs";
+}
+
+function setSessionCookie(res, token) {
+    res.setHeader(
+        "Set-Cookie",
+        SESSION_COOKIE + "=" + encodeURIComponent(token) +
+        "; HttpOnly; SameSite=Lax; Path=/; Max-Age=" + Math.floor(SESSION_MS / 1000)
+    );
+}
+
+function clearSessionCookie(res) {
+    res.setHeader(
+        "Set-Cookie",
+        SESSION_COOKIE + "=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
+    );
+}
+
+function requireLabAuth(req, res, next) {
+    if (!isLabPath(req.path)) {
+        next();
+        return;
+    }
+
+    if (sessionToken(req) !== "") {
+        next();
+        return;
+    }
+
+    if (req.path.startsWith("/api/")) {
+        res.status(401).json({ error: "Login required" });
+        return;
+    }
+
+    res.redirect("/login?next=" + encodeURIComponent(req.originalUrl));
+}
 
 function getClientIp(req) {
     let ip = req.ip || (req.socket && req.socket.remoteAddress) || "";
@@ -236,8 +369,56 @@ app.get("/devices", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "devices.html"));
 });
 
+app.get("/login", (req, res) => {
+    if (sessionToken(req) !== "") {
+        res.redirect(safeNext(req.query.next));
+        return;
+    }
+
+    res.sendFile(path.join(__dirname, "public", "login.html"));
+});
+
+app.post("/login", (req, res) => {
+    const username = req.body && req.body.username;
+    const password = req.body && req.body.password;
+    const nextUrl = safeNext(req.body && req.body.next);
+
+    if (typeof username !== "string" || typeof password !== "string" || !sameSecret(username, LAB_USER) || !sameSecret(password, LAB_PASS)) {
+        res.redirect("/login?error=1&next=" + encodeURIComponent(nextUrl));
+        return;
+    }
+
+    const token = crypto.randomBytes(24).toString("hex");
+    sessions.set(token, { expiresAt: Date.now() + SESSION_MS });
+    setSessionCookie(res, token);
+    res.redirect(nextUrl);
+});
+
+app.get("/logout", (req, res) => {
+    const token = readCookie(req, SESSION_COOKIE);
+
+    if (token !== "") {
+        sessions.delete(token);
+    }
+
+    clearSessionCookie(res);
+    res.redirect("/login");
+});
+
 app.get("/srs", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "srs.html"));
+    res.sendFile(path.join(__dirname, "srs", "srs.html"));
+});
+
+app.get("/qr", (req, res) => {
+    res.sendFile(path.join(__dirname, "qr", "qr.html"));
+});
+
+app.get("/edcc", (req, res) => {
+    res.sendFile(path.join(__dirname, "edcc", "edcc.html"));
+});
+
+app.get("/history", (req, res) => {
+    res.sendFile(path.join(__dirname, "edcc", "history.html"));
 });
 
 app.listen({ port: PORT, host: "::", ipv6Only: false }, () => {

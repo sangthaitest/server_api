@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDCC</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+            color: #222;
+            background: #f7f7f7;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 24px;
+        }
+
+        a {
+            color: #1a4f9c;
+        }
+
+        .status {
+            margin: 0 0 12px;
+            color: #555;
+        }
+
+        .error {
+            color: #b00020;
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 16px;
+            margin-bottom: 16px;
+            max-width: 860px;
+        }
+
+        label {
+            display: inline-block;
+            margin-right: 16px;
+            font-size: 14px;
+        }
+
+        input {
+            display: block;
+            margin-top: 4px;
+            padding: 6px 8px;
+            font-size: 14px;
+            width: 220px;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        button {
+            border: 0;
+            background: #1a4f9c;
+            color: #fff;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        pre {
+            background: #111;
+            color: #e8e8e8;
+            padding: 12px;
+            overflow: auto;
+            font-size: 12px;
+            line-height: 1.45;
+            min-height: 220px;
+            max-height: 480px;
+        }
+    </style>
+</head>
+<body>
+    <p style="margin:0 0 16px;"><a href="/history">History</a> · <a href="/logout">Đăng xuất</a></p>
+    <h1>EDCC</h1>
+    <p id="status" class="status">Loading...</p>
+    <div class="card">
+        <p class="status">POS là TCP client. Trên máy POS đặt EDC IP là một địa chỉ bên dưới và EDC PORT là port này.</p>
+        <p id="listen" class="status"></p>
+        <p id="pos" class="status">Chưa có POS.</p>
+        <label>Số tiền VND
+            <input id="amount" value="10000" inputmode="numeric">
+        </label>
+        <label>Invoice (Void)
+            <input id="invoice" value="1" inputmode="numeric">
+        </label>
+        <label>QR key (Inquiry)
+            <input id="qr-key" value="">
+        </label>
+        <div class="actions">
+            <button type="button" data-action="qr">QR Pay</button>
+            <button type="button" data-action="inquiry">QR Inquiry</button>
+            <button type="button" data-action="sale">Sale</button>
+            <button type="button" data-action="void">Void</button>
+            <button type="button" data-action="settle">Settle</button>
+            <button type="button" data-action="ping">Ping</button>
+        </div>
+        <p id="command-status" class="status"></p>
+    </div>
+    <pre id="log"></pre>
+    <script>
+        var nativeFetch = window.fetch;
+        window.fetch = function (url, options) {
+            return nativeFetch(url, options).then(function (response) {
+                if (response.status === 401) {
+                    window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search);
+                }
+                return response;
+            });
+        };
+
+        var qrKeyTouched = false;
+
+        document.getElementById("qr-key").addEventListener("input", function () {
+            qrKeyTouched = true;
+        });
+
+        function render(state) {
+            var status = document.getElementById("status");
+            var listen = document.getElementById("listen");
+            var pos = document.getElementById("pos");
+            var addresses = (state.addresses || []).join(", ") || "localhost";
+
+            status.textContent = state.listening ? "EDCC đang lắng nghe." : "EDCC chưa lắng nghe.";
+            status.className = state.listening ? "status" : "status error";
+            listen.textContent = "EDC IP: " + addresses + "    EDC PORT: " + state.port +
+                (state.listenError ? "    " + state.listenError : "");
+
+            if (!state.pos) {
+                pos.textContent = "Chưa có POS kết nối.";
+                pos.className = "status";
+            } else {
+                pos.textContent = "POS " + state.pos.remote +
+                    "    TID " + (state.pos.terminalId || "-") +
+                    "    Serial " + (state.pos.serial || "-") +
+                    "    từ " + state.pos.connectedAt;
+                pos.className = "status";
+            }
+
+            var keyInput = document.getElementById("qr-key");
+            if (!qrKeyTouched && state.lastQrKey && keyInput.value === "") {
+                keyInput.value = state.lastQrKey;
+            }
+
+            var log = document.getElementById("log");
+            var atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 24;
+            log.textContent = (state.lines || []).map(function (line) {
+                return line.at + "  " + line.dir + "  " + line.text;
+            }).join("\n");
+            if (atBottom) {
+                log.scrollTop = log.scrollHeight;
+            }
+        }
+
+        function loadState() {
+            fetch("/api/edcc/state")
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("Failed to load EDCC");
+                    }
+                    return response.json();
+                })
+                .then(render)
+                .catch(function () {
+                    var status = document.getElementById("status");
+                    status.className = "status error";
+                    status.textContent = "Không tải được trạng thái EDCC.";
+                });
+        }
+
+        function sendCommand(action) {
+            var note = document.getElementById("command-status");
+            var buttons = document.querySelectorAll("button[data-action]");
+            buttons.forEach(function (button) {
+                button.disabled = true;
+            });
+            note.className = "status";
+            note.textContent = "Đang gửi...";
+
+            fetch("/api/edcc/command", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: action,
+                    amount: document.getElementById("amount").value.trim(),
+                    invoice: document.getElementById("invoice").value.trim(),
+                    qrKey: document.getElementById("qr-key").value.trim()
+                })
+            })
+                .then(function (response) {
+                    return response.json().then(function (body) {
+                        return { ok: response.ok, body: body };
+                    });
+                })
+                .then(function (result) {
+                    if (!result.ok) {
+                        note.className = "status error";
+                        note.textContent = result.body && result.body.error ? result.body.error : "Gửi lệnh thất bại.";
+                        return;
+                    }
+                    if (action === "qr" && result.body.key) {
+                        document.getElementById("qr-key").value = result.body.key;
+                        qrKeyTouched = false;
+                    }
+                    note.className = "status";
+                    note.textContent = "Đã gửi.";
+                    loadState();
+                })
+                .catch(function () {
+                    note.className = "status error";
+                    note.textContent = "Gửi lệnh thất bại.";
+                })
+                .then(function () {
+                    buttons.forEach(function (button) {
+                        button.disabled = false;
+                    });
+                });
+        }
+
+        document.body.addEventListener("click", function (event) {
+            var button = event.target.closest("button[data-action]");
+            if (!button) {
+                return;
+            }
+            sendCommand(button.getAttribute("data-action"));
+        });
+
+        loadState();
+        setInterval(loadState, 1000);
+    </script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 const express = require("express");
 const crypto = require("crypto");
-const srsDb = require("./db-srs");
-const srsCrypto = require("./srs-crypto");
+const srsDb = require("./db");
+const srsCrypto = require("./crypto");
 
 const router = express.Router();
 

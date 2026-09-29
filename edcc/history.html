@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDCC History</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+            color: #222;
+            background: #f7f7f7;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 24px;
+        }
+
+        a {
+            color: #1a4f9c;
+        }
+
+        .status {
+            margin: 0 0 12px;
+            color: #555;
+        }
+
+        .error {
+            color: #b00020;
+        }
+
+        .filters {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        button {
+            border: 1px solid #ccc;
+            background: #fff;
+            padding: 6px 12px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        button.active {
+            background: #1a4f9c;
+            border-color: #1a4f9c;
+            color: #fff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px 10px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background: #eee;
+        }
+
+        .success {
+            color: #1b7f3a;
+            font-weight: bold;
+        }
+
+        .failed {
+            color: #b00020;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <p style="margin:0 0 16px;"><a href="/edcc">EDCC</a> · <a href="/logout">Đăng xuất</a></p>
+    <h1>History</h1>
+    <div class="filters">
+        <button type="button" data-filter="" class="active">Tất cả</button>
+        <button type="button" data-filter="success">Thành công</button>
+        <button type="button" data-filter="failed">Thất bại</button>
+    </div>
+    <p id="status" class="status">Loading...</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Thời gian</th>
+                <th>Loại</th>
+                <th>Số tiền</th>
+                <th>Invoice</th>
+                <th>TID</th>
+                <th>Kết quả</th>
+                <th>Mã</th>
+            </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+    </table>
+    <script>
+        var nativeFetch = window.fetch;
+        window.fetch = function (url, options) {
+            return nativeFetch(url, options).then(function (response) {
+                if (response.status === 401) {
+                    window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search);
+                }
+                return response;
+            });
+        };
+
+        var filter = "";
+        var labels = {
+            sale: "Sale",
+            qr: "QR Pay",
+            void: "Void",
+            settle: "Settle",
+            inquiry: "QR Inquiry",
+            pending: "Đang xử lý",
+            success: "Thành công",
+            failed: "Thất bại"
+        };
+
+        function escapeHtml(value) {
+            return String(value == null ? "" : value)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        function resultCode(item) {
+            if (item.errorCode) {
+                return item.errorCode;
+            }
+            return item.responseCode || "";
+        }
+
+        function loadHistory() {
+            var url = "/api/edcc/history" + (filter ? "?outcome=" + encodeURIComponent(filter) : "");
+            fetch(url)
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("Failed to load history");
+                    }
+                    return response.json();
+                })
+                .then(function (items) {
+                    var status = document.getElementById("status");
+                    var body = document.getElementById("rows");
+                    if (!Array.isArray(items) || items.length === 0) {
+                        status.textContent = "Không có giao dịch.";
+                        body.innerHTML = "";
+                        return;
+                    }
+                    status.textContent = items.length + " giao dịch";
+                    body.innerHTML = items.map(function (item) {
+                        var outcomeClass = item.outcome === "success" || item.outcome === "failed" ? item.outcome : "";
+                        return "<tr>" +
+                            "<td>" + escapeHtml(item.createdAt) + "</td>" +
+                            "<td>" + escapeHtml(labels[item.action] || item.action) + "</td>" +
+                            "<td>" + escapeHtml(item.amount ? item.amount : "") + "</td>" +
+                            "<td>" + escapeHtml(item.invoice) + "</td>" +
+                            "<td>" + escapeHtml(item.terminalId) + "</td>" +
+                            "<td class=\"" + outcomeClass + "\">" + escapeHtml(labels[item.outcome] || item.outcome) + "</td>" +
+                            "<td>" + escapeHtml(resultCode(item)) + "</td>" +
+                            "</tr>";
+                    }).join("");
+                })
+                .catch(function () {
+                    var status = document.getElementById("status");
+                    status.className = "status error";
+                    status.textContent = "Không tải được history.";
+                });
+        }
+
+        document.body.addEventListener("click", function (event) {
+            var button = event.target.closest("button[data-filter]");
+            if (!button) {
+                return;
+            }
+            filter = button.getAttribute("data-filter") || "";
+            document.querySelectorAll("button[data-filter]").forEach(function (item) {
+                item.className = item === button ? "active" : "";
+            });
+            loadHistory();
+        });
+
+        loadHistory();
+        setInterval(loadHistory, 2000);
+    </script>
+</body>
+</html>

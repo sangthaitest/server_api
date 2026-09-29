@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Payments</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+            color: #222;
+            background: #f7f7f7;
+        }
+
+        h1 {
+            margin: 0 0 16px;
+            font-size: 24px;
+        }
+
+        .status {
+            margin-bottom: 12px;
+            color: #555;
+        }
+
+        .error {
+            color: #b00020;
+        }
+
+        table.list {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        table.list th,
+        table.list td {
+            border: 1px solid #ccc;
+            padding: 8px 10px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        table.list th {
+            background: #eee;
+        }
+
+        table.list tbody tr:nth-child(even) td {
+            background: #fafafa;
+        }
+
+        #payments-body tr {
+            cursor: pointer;
+        }
+
+        #payments-body tr:hover td {
+            background: #e8f1ff;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 12px;
+            color: #1a4f9c;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .detail-card {
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 16px;
+            max-width: 720px;
+        }
+
+        .detail-card dl {
+            margin: 0;
+        }
+
+        .detail-card dt {
+            font-weight: bold;
+            margin-top: 10px;
+            color: #555;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .detail-card dd {
+            margin: 4px 0 0;
+            word-break: break-all;
+            font-size: 14px;
+        }
+
+        pre {
+            background: #f0f0f0;
+            padding: 12px;
+            overflow: auto;
+            font-size: 12px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        button.result {
+            border: 0;
+            padding: 6px 10px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        button.success {
+            background: #1b7f3a;
+        }
+
+        button.failed {
+            background: #b00020;
+        }
+
+        button.result:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+    </style>
+</head>
+<body>
+    <p style="margin:0 0 16px;"><a href="/logout">Đăng xuất</a></p>
+    <div id="list-view">
+        <h1>QR Tokens</h1>
+        <p id="token-status" class="status">Loading...</p>
+        <table class="list">
+            <thead>
+                <tr>
+                    <th>Client ID</th>
+                    <th>Access Token</th>
+                    <th>Expires</th>
+                    <th>Created</th>
+                    <th>State</th>
+                </tr>
+            </thead>
+            <tbody id="tokens-body"></tbody>
+        </table>
+
+        <h1 style="margin-top: 28px;">QR Payments</h1>
+        <p class="status">Chọn payStatus. POS poll khi 1, 2, 3, 33. Thành công khi 4 hoặc 5. Mã khác thì POS dừng và báo thất bại.</p>
+        <p id="status" class="status">Loading...</p>
+        <table class="list">
+            <thead>
+                <tr>
+                    <th>Payment Ref</th>
+                    <th>MID</th>
+                    <th>TID</th>
+                    <th>Bill</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody id="payments-body"></tbody>
+        </table>
+    </div>
+
+    <div id="detail-view" class="hidden">
+        <a class="back-link" href="/qr">← QR Payments</a>
+        <h1>QR Payment Detail</h1>
+        <p id="detail-status" class="status">Loading...</p>
+        <div id="detail-card" class="detail-card hidden"></div>
+    </div>
+
+    <script>
+        var nativeFetch = window.fetch;
+        window.fetch = function (url, options) {
+            return nativeFetch(url, options).then(function (response) {
+                if (response.status === 401) {
+                    window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search);
+                }
+                return response;
+            });
+        };
+
+        function escapeHtml(value) {
+            return String(value == null ? "" : value)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        function getPaymentRefFromUrl() {
+            var params = new URLSearchParams(window.location.search);
+            return params.get("id") || "";
+        }
+
+        var payStatuses = [];
+
+        function loadPayStatuses() {
+            if (payStatuses.length > 0) {
+                return Promise.resolve(payStatuses);
+            }
+
+            return fetch("/api/qr/pay-statuses")
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("Failed to load statuses");
+                    }
+                    return response.json();
+                })
+                .then(function (items) {
+                    payStatuses = Array.isArray(items) ? items : [];
+                    return payStatuses;
+                });
+        }
+
+        function statusLabel(payStatus) {
+            var match = payStatuses.find(function (item) {
+                return item.payStatus === payStatus;
+            });
+            if (!match) {
+                return payStatus;
+            }
+            return match.payStatus + " " + match.payDesc;
+        }
+
+        function resultSelect(paymentRef, current) {
+            var groups = [
+                { id: "poll", label: "Poll" },
+                { id: "success", label: "Success" },
+                { id: "stop", label: "Stop" }
+            ];
+            var html = "<select data-id=\"" + escapeHtml(paymentRef) + "\">";
+            groups.forEach(function (group) {
+                html += "<optgroup label=\"" + escapeHtml(group.label) + "\">";
+                payStatuses.forEach(function (item) {
+                    if (item.group !== group.id) {
+                        return;
+                    }
+                    var selected = item.payStatus === current ? " selected" : "";
+                    html += "<option value=\"" + escapeHtml(item.payStatus) + "\"" + selected + ">" +
+                        escapeHtml(item.payStatus + " — " + item.payDesc) + "</option>";
+                });
+                html += "</optgroup>";
+            });
+            html += "</select>";
+            return html;
+        }
+
+        function setPaymentResult(paymentRef, payStatus, onDone) {
+            fetch("/api/qr/payments/" + encodeURIComponent(paymentRef) + "/result", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ payStatus: payStatus })
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("Failed to update payment");
+                    }
+                    return response.json();
+                })
+                .then(function () {
+                    onDone();
+                })
+                .catch(function () {
+                    var status = document.getElementById("detail-status");
+                    if (document.getElementById("detail-view").className !== "hidden") {
+                        status.className = "status error";
+                        status.textContent = "Failed to update payment.";
+                        return;
+                    }
+                    var listStatus = document.getElementById("status");
+                    listStatus.className = "status error";
+                    listStatus.textContent = "Failed to update payment.";
+                });
+        }
+
+        function showList() {
+            document.getElementById("list-view").className = "";
+            document.getElementById("detail-view").className = "hidden";
+            document.title = "QR Payments";
+
+            fetch("/api/qr/tokens")
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("Failed to load tokens");
+                    }
+                    return response.json();
+                })
+                .then(function (tokens) {
+                    var status = document.getElementById("token-status");
+                    var tbody = document.getElementById("tokens-body");
+
+                    if (!Array.isArray(tokens) || tokens.length === 0) {
+                        status.textContent = "No tokens found.";
+                        tbody.innerHTML = "";
+                        return;
+                    }
+
+                    status.textContent = tokens.length + " token(s)";
+                    tbody.innerHTML = tokens.map(function (item) {
+                        return "<tr>" +
+                            "<td>" + escapeHtml(item.clientId) + "</td>" +
+                            "<td>" + escapeHtml(item.accessToken) + "</td>" +
+                            "<td>" + escapeHtml(item.expiresAtIso) + "</td>" +
+                            "<td>" + escapeHtml(item.createdAt) + "</td>" +
+                            "<td>" + escapeHtml(item.expired ? "expired" : "valid") + "</td>" +
+                        "</tr>";
+                    }).join("");
+                })
+                .catch(function () {
+                    var status = document.getElementById("token-status");
+                    status.className = "status error";
+                    status.textContent = "Failed to load tokens.";
+                });
+
+            loadPayStatuses().then(function () {
+            fetch("/api/qr/payments")
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("Failed to load payments");
+                    }
+                    return response.json();
+                })
+                .then(function (payments) {
+                    var status = document.getElementById("status");
+                    var tbody = document.getElementById("payments-body");
+
+                    if (!Array.isArray(payments) || payments.length === 0) {
+                        status.textContent = "No payments found.";
+                        tbody.innerHTML = "";
+                        return;
+                    }
+
+                    status.textContent = payments.length + " payment(s)";
+                    tbody.innerHTML = payments.map(function (item) {
+                        var href = "/qr?id=" + encodeURIComponent(item.paymentRef);
+                        return "<tr data-id=\"" + escapeHtml(item.paymentRef) + "\">" +
+                            "<td><a href=\"" + href + "\">" + escapeHtml(item.paymentRef) + "</a></td>" +
+                            "<td>" + escapeHtml(item.mid) + "</td>" +
+                            "<td>" + escapeHtml(item.tid) + "</td>" +
+                            "<td>" + escapeHtml(item.billNumber) + "</td>" +
+                            "<td>" + escapeHtml(item.amount) + "</td>" +
+                            "<td>" + escapeHtml(statusLabel(item.payStatus)) + "</td>" +
+                            "<td>" + escapeHtml(item.createdAt) + "</td>" +
+                            "<td>" + resultSelect(item.paymentRef, item.payStatus) + "</td>" +
+                        "</tr>";
+                    }).join("");
+                })
+                .catch(function () {
+                    var status = document.getElementById("status");
+                    status.className = "status error";
+                    status.textContent = "Failed to load payments.";
+                });
+            });
+        }
+
+        function showDetail(paymentRef) {
+            document.getElementById("list-view").className = "hidden";
+            document.getElementById("detail-view").className = "";
+            document.title = "QR Payment";
+
+            var status = document.getElementById("detail-status");
+            var card = document.getElementById("detail-card");
+            status.className = "status";
+            status.textContent = "Loading...";
+            card.className = "detail-card hidden";
+
+            loadPayStatuses().then(function () {
+            fetch("/api/qr/payments/" + encodeURIComponent(paymentRef))
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("Failed to load payment");
+                    }
+                    return response.json();
+                })
+                .then(function (item) {
+                    status.textContent = item.paymentRef;
+                    card.className = "detail-card";
+                    card.innerHTML =
+                        "<dl>" +
+                        "<dt>Payment Ref</dt><dd>" + escapeHtml(item.paymentRef) + "</dd>" +
+                        "<dt>Request ID</dt><dd>" + escapeHtml(item.requestId) + "</dd>" +
+                        "<dt>Partner</dt><dd>" + escapeHtml(item.partnerCode) + "</dd>" +
+                        "<dt>MID / TID</dt><dd>" + escapeHtml(item.mid) + " / " + escapeHtml(item.tid) + "</dd>" +
+                        "<dt>Bill Number</dt><dd>" + escapeHtml(item.billNumber) + "</dd>" +
+                        "<dt>Amount</dt><dd>" + escapeHtml(item.amount) + "</dd>" +
+                        "<dt>Pay Type</dt><dd>" + escapeHtml(item.payType) + "</dd>" +
+                        "<dt>Status</dt><dd>" + escapeHtml(statusLabel(item.payStatus)) + "</dd>" +
+                        "<dt>QR Payload</dt><dd>" + escapeHtml(item.qrPayload) + "</dd>" +
+                        "<dt>Created</dt><dd>" + escapeHtml(item.createdAt) + "</dd>" +
+                        "<dt>Updated</dt><dd>" + escapeHtml(item.updatedAt) + "</dd>" +
+                        "</dl>" +
+                        "<div class=\"actions\">" + resultSelect(item.paymentRef, item.payStatus) + "</div>" +
+                        "<h3>Request</h3>" +
+                        "<pre>" + escapeHtml(JSON.stringify(item.request, null, 2)) + "</pre>";
+                })
+                .catch(function () {
+                    status.className = "status error";
+                    status.textContent = "Failed to load payment.";
+                });
+            });
+        }
+
+        document.body.addEventListener("change", function (event) {
+            var select = event.target.closest("select[data-id]");
+            if (!select) {
+                return;
+            }
+            var paymentRef = select.getAttribute("data-id");
+            var payStatus = select.value;
+            select.disabled = true;
+            setPaymentResult(paymentRef, payStatus, function () {
+                if (getPaymentRefFromUrl()) {
+                    showDetail(paymentRef);
+                    return;
+                }
+                showList();
+            });
+        });
+
+        document.getElementById("payments-body").addEventListener("click", function (event) {
+            if (event.target.closest("select")) {
+                return;
+            }
+            var row = event.target.closest("tr[data-id]");
+            if (!row) {
+                return;
+            }
+            if (event.target.tagName === "A") {
+                return;
+            }
+            window.location.href = "/qr?id=" + encodeURIComponent(row.getAttribute("data-id"));
+        });
+
+        var paymentRef = getPaymentRefFromUrl();
+        if (paymentRef) {
+            showDetail(paymentRef);
+        } else {
+            showList();
+        }
+    </script>
+</body>
+</html>

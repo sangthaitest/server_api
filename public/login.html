@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f7f7f7;
+            color: #222;
+        }
+
+        form {
+            width: 320px;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 20px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 22px;
+        }
+
+        p {
+            margin: 0 0 16px;
+            color: #555;
+            font-size: 14px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        input {
+            display: block;
+            width: 100%;
+            margin-top: 4px;
+            padding: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        button {
+            border: 0;
+            background: #1a4f9c;
+            color: #fff;
+            padding: 8px 14px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .error {
+            color: #b00020;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <form method="post" action="/login">
+        <h1>Đăng nhập</h1>
+        <p>Một tài khoản cho SRS, QR và EDCC.</p>
+        <div id="error" class="error" hidden>Sai tài khoản hoặc mật khẩu.</div>
+        <input type="hidden" name="next" id="next" value="/srs">
+        <label>Tài khoản
+            <input name="username" autocomplete="username" required>
+        </label>
+        <label>Mật khẩu
+            <input name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button type="submit">Đăng nhập</button>
+    </form>
+    <script>
+        var params = new URLSearchParams(window.location.search);
+        var nextUrl = params.get("next") || "/srs";
+        if (nextUrl === "/srs" || nextUrl === "/qr" || nextUrl === "/edcc" || nextUrl === "/history" || nextUrl.indexOf("/srs?") === 0 || nextUrl.indexOf("/qr?") === 0 || nextUrl.indexOf("/edcc?") === 0 || nextUrl.indexOf("/history?") === 0) {
+            document.getElementById("next").value = nextUrl;
+        }
+        if (params.get("error") === "1") {
+            document.getElementById("error").hidden = false;
+        }
+    </script>
+</body>
+</html>

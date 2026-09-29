@@ -1,6 +1,7 @@
+const path = require("path");
 const Database = require("better-sqlite3");
 
-const srsDb = new Database("./data/srs.db");
+const srsDb = new Database(path.join(__dirname, "..", "data", "srs.db"));
 
 srsDb.exec(`
     CREATE TABLE IF NOT EXISTS srs_clients (
