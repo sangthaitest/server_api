@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHBVN QR</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+            color: #222;
+            background: #f7f7f7;
+        }
+
+        h1 {
+            margin: 0 0 16px;
+            font-size: 24px;
+        }
+
+        .status {
+            margin-bottom: 12px;
+            color: #555;
+        }
+
+        .error {
+            color: #b00020;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px 10px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background: #eee;
+        }
+
+        select {
+            font: inherit;
+        }
+    </style>
+</head>
+<body>
+    <p style="margin:0 0 16px;"><a href="/logout">Đăng xuất</a></p>
+    <h1>SHBVN QR</h1>
+    <p class="status">POS debug gọi <code>http://113.161.81.81:21501/api/</code>. Chọn Thành công khi máy POS đang hiện QR.</p>
+    <p id="status" class="status">Loading...</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Thời gian</th>
+                <th>TID</th>
+                <th>MID</th>
+                <th>Số tiền</th>
+                <th>Tài khoản ảo</th>
+                <th>Kết quả</th>
+            </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+    </table>
+    <script>
+        var nativeFetch = window.fetch;
+        window.fetch = function (url, options) {
+            return nativeFetch(url, options).then(function (response) {
+                if (response.status === 401) {
+                    window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search);
+                }
+                return response;
+            });
+        };
+
+        function escapeHtml(value) {
+            return String(value == null ? "" : value)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        function loadPayments() {
+            fetch("/api/shbvn/payments")
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("Failed to load payments");
+                    }
+                    return response.json();
+                })
+                .then(function (items) {
+                    var status = document.getElementById("status");
+                    var body = document.getElementById("rows");
+
+                    if (!Array.isArray(items) || items.length === 0) {
+                        status.textContent = "Chưa có QR.";
+                        body.innerHTML = "";
+                        return;
+                    }
+
+                    status.textContent = items.length + " giao dịch";
+                    body.innerHTML = items.map(function (item) {
+                        return "<tr>" +
+                            "<td>" + escapeHtml(item.createdAt) + "</td>" +
+                            "<td>" + escapeHtml(item.tid) + "</td>" +
+                            "<td>" + escapeHtml(item.mid) + "</td>" +
+                            "<td>" + escapeHtml(item.amount) + "</td>" +
+                            "<td>" + escapeHtml(item.virtual_acc_no) + "</td>" +
+                            "<td><select data-id=\"" + escapeHtml(item.transaction_id) + "\">" +
+                            ["pending", "success", "failed"].map(function (value) {
+                                var label = value === "pending" ? "Đang chờ" : value === "success" ? "Thành công" : "Thất bại";
+                                return "<option value=\"" + value + "\"" + (item.status === value ? " selected" : "") + ">" + label + "</option>";
+                            }).join("") +
+                            "</select></td></tr>";
+                    }).join("");
+                })
+                .catch(function () {
+                    var status = document.getElementById("status");
+                    status.className = "status error";
+                    status.textContent = "Không tải được danh sách QR.";
+                });
+        }
+
+        document.body.addEventListener("change", function (event) {
+            var select = event.target.closest("select[data-id]");
+            if (!select) {
+                return;
+            }
+
+            fetch("/api/shbvn/payments/" + encodeURIComponent(select.getAttribute("data-id")) + "/status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: select.value })
+            }).then(function () {
+                loadPayments();
+            });
+        });
+
+        loadPayments();
+        setInterval(loadPayments, 2000);
+    </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ const db = require("./db");
 const srsApi = require("./srs/api");
 const qrApi = require("./qr/api");
 const edcc = require("./edcc/api");
+const shbvn = require("./shbvn/api");
 
 const LAB_USER = "admin";
 const LAB_PASS = "admin";
@@ -52,7 +53,9 @@ app.use(requireLabAuth);
 app.use(srsApi);
 app.use(qrApi);
 app.use(edcc.router);
+app.use(shbvn.router);
 edcc.start();
+shbvn.start(app);
 
 function readCookie(req, name) {
     const header = req.headers.cookie || "";
@@ -107,7 +110,7 @@ function sessionToken(req) {
 }
 
 function isLabPath(urlPath) {
-    return urlPath === "/srs" || urlPath === "/qr" || urlPath === "/edcc" || urlPath === "/history" || urlPath.startsWith("/api/srs/") || urlPath.startsWith("/api/qr/") || urlPath.startsWith("/api/edcc/");
+    return urlPath === "/srs" || urlPath === "/qr" || urlPath === "/edcc" || urlPath === "/history" || urlPath === "/shbvn" || urlPath.startsWith("/api/srs/") || urlPath.startsWith("/api/qr/") || urlPath.startsWith("/api/edcc/") || urlPath.startsWith("/api/shbvn/");
 }
 
 function safeNext(value) {
@@ -115,11 +118,11 @@ function safeNext(value) {
         return "/srs";
     }
 
-    if (value === "/srs" || value === "/qr" || value === "/edcc" || value === "/history") {
+    if (value === "/srs" || value === "/qr" || value === "/edcc" || value === "/history" || value === "/shbvn") {
         return value;
     }
 
-    if (/^\/srs\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/qr\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/edcc\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/history\?[A-Za-z0-9._~%=&-]*$/.test(value)) {
+    if (/^\/srs\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/qr\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/edcc\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/history\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/shbvn\?[A-Za-z0-9._~%=&-]*$/.test(value)) {
         return value;
     }
 
@@ -419,6 +422,10 @@ app.get("/edcc", (req, res) => {
 
 app.get("/history", (req, res) => {
     res.sendFile(path.join(__dirname, "edcc", "history.html"));
+});
+
+app.get("/shbvn", (req, res) => {
+    res.sendFile(path.join(__dirname, "shbvn", "shbvn.html"));
 });
 
 app.listen({ port: PORT, host: "::", ipv6Only: false }, () => {

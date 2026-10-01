@@ -68,7 +68,7 @@
 <body>
     <form method="post" action="/login">
         <h1>Đăng nhập</h1>
-        <p>Một tài khoản cho SRS, QR và EDCC.</p>
+        <p>Một tài khoản cho SRS, QR, EDCC và SHBVN QR.</p>
         <div id="error" class="error" hidden>Sai tài khoản hoặc mật khẩu.</div>
         <input type="hidden" name="next" id="next" value="/srs">
         <label>Tài khoản
@@ -82,7 +82,7 @@
     <script>
         var params = new URLSearchParams(window.location.search);
         var nextUrl = params.get("next") || "/srs";
-        if (nextUrl === "/srs" || nextUrl === "/qr" || nextUrl === "/edcc" || nextUrl === "/history" || nextUrl.indexOf("/srs?") === 0 || nextUrl.indexOf("/qr?") === 0 || nextUrl.indexOf("/edcc?") === 0 || nextUrl.indexOf("/history?") === 0) {
+        if (nextUrl === "/srs" || nextUrl === "/qr" || nextUrl === "/edcc" || nextUrl === "/history" || nextUrl === "/shbvn" || nextUrl.indexOf("/srs?") === 0 || nextUrl.indexOf("/qr?") === 0 || nextUrl.indexOf("/edcc?") === 0 || nextUrl.indexOf("/history?") === 0 || nextUrl.indexOf("/shbvn?") === 0) {
             document.getElementById("next").value = nextUrl;
         }
         if (params.get("error") === "1") {
