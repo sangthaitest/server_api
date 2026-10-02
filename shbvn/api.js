@@ -166,7 +166,7 @@ router.post("/api/v1/qr/create", (req, res) => {
             transaction_id: transactionId,
             virtual_acc_no: virtualAccNo,
             amount: amount,
-            countdown_time_sec: 90,
+            countdown_time_sec: 450,
             request_interval_sec: 5
         }
     });

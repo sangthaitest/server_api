@@ -67,19 +67,146 @@
             background: #eee;
         }
 
+        .topbar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 16px;
+            margin: 0 0 12px;
+        }
+
+        .topbar form {
+            margin: 0;
+        }
+
+        .topbar a:first-child {
+            margin-right: auto;
+        }
+
+        .topbar a {
+            color: #1a4f9c;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .topbar button.reset-server {
+            border: 0;
+            background: transparent;
+            color: #b00020;
+            padding: 0;
+            font: inherit;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            min-height: 0;
+            flex: none;
+        }
+
+        th.result-col {
+            font-size: 16px;
+        }
+
+        td[data-label="Kết quả"] {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
         .success {
             color: #1b7f3a;
-            font-weight: bold;
+            font-weight: 700;
+            font-size: 18px;
         }
 
         .failed {
             color: #b00020;
-            font-weight: bold;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        @media (max-width: 760px) {
+            body {
+                margin: 12px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .filters {
+                flex-wrap: wrap;
+            }
+
+            button {
+                min-height: 44px;
+                font-size: 16px;
+                flex: 1 1 30%;
+            }
+
+            table {
+                background: transparent;
+            }
+
+            thead {
+                display: none;
+            }
+
+            table,
+            tbody,
+            tr,
+            td {
+                display: block;
+                width: 100%;
+            }
+
+            tr {
+                margin: 0 0 12px;
+                background: #fff;
+                border: 1px solid #ccc;
+            }
+
+            td {
+                display: grid;
+                grid-template-columns: 6.5rem minmax(0, 1fr);
+                gap: 8px 12px;
+                align-items: start;
+                border: 0;
+                border-bottom: 1px solid #eee;
+                padding: 10px 12px;
+                text-align: right;
+                word-break: break-word;
+            }
+
+            td:last-child {
+                border-bottom: 0;
+            }
+
+            td::before {
+                content: attr(data-label);
+                color: #666;
+                font-size: 12px;
+                font-weight: bold;
+                text-align: left;
+            }
+
+            td[data-label="Kết quả"] {
+                font-size: 18px;
+            }
+
+            td[data-label="Kết quả"]::before {
+                font-size: 16px;
+            }
         }
     </style>
 </head>
 <body>
-    <p style="margin:0 0 16px;"><a href="/edcc">EDCC</a> · <a href="/logout">Đăng xuất</a></p>
+    <div class="topbar">
+        <a href="/edcc">EDCC</a>
+        <form method="post" action="/restart" onsubmit="return confirm('Reset server? Server sẽ khởi động lại.');">
+            <input type="hidden" name="next" value="/history">
+            <button type="submit" class="reset-server">Reset server</button>
+        </form>
+        <a href="/logout">Đăng xuất</a>
+    </div>
     <h1>History</h1>
     <div class="filters">
         <button type="button" data-filter="" class="active">Tất cả</button>
@@ -95,7 +222,7 @@
                 <th>Số tiền</th>
                 <th>Invoice</th>
                 <th>TID</th>
-                <th>Kết quả</th>
+                <th class="result-col">Kết quả</th>
                 <th>Mã</th>
             </tr>
         </thead>
@@ -160,13 +287,13 @@
                     body.innerHTML = items.map(function (item) {
                         var outcomeClass = item.outcome === "success" || item.outcome === "failed" ? item.outcome : "";
                         return "<tr>" +
-                            "<td>" + escapeHtml(item.createdAt) + "</td>" +
-                            "<td>" + escapeHtml(labels[item.action] || item.action) + "</td>" +
-                            "<td>" + escapeHtml(item.amount ? item.amount : "") + "</td>" +
-                            "<td>" + escapeHtml(item.invoice) + "</td>" +
-                            "<td>" + escapeHtml(item.terminalId) + "</td>" +
-                            "<td class=\"" + outcomeClass + "\">" + escapeHtml(labels[item.outcome] || item.outcome) + "</td>" +
-                            "<td>" + escapeHtml(resultCode(item)) + "</td>" +
+                            "<td data-label=\"Thời gian\">" + escapeHtml(item.createdAt) + "</td>" +
+                            "<td data-label=\"Loại\">" + escapeHtml(labels[item.action] || item.action) + "</td>" +
+                            "<td data-label=\"Số tiền\">" + escapeHtml(item.amount ? item.amount : "") + "</td>" +
+                            "<td data-label=\"Invoice\">" + escapeHtml(item.invoice) + "</td>" +
+                            "<td data-label=\"TID\">" + escapeHtml(item.terminalId) + "</td>" +
+                            "<td data-label=\"Kết quả\" class=\"" + outcomeClass + "\">" + escapeHtml(labels[item.outcome] || item.outcome) + "</td>" +
+                            "<td data-label=\"Mã\">" + escapeHtml(resultCode(item)) + "</td>" +
                             "</tr>";
                     }).join("");
                 })

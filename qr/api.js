@@ -8,6 +8,21 @@ function nowIso() {
     return new Date().toISOString();
 }
 
+function padTime(value, width) {
+    return String(value).padStart(width, "0");
+}
+
+function formatServerTime(date) {
+    const shifted = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+
+    return padTime(shifted.getUTCHours(), 2) + ":" +
+        padTime(shifted.getUTCMinutes(), 2) + ":" +
+        padTime(shifted.getUTCSeconds(), 2) + " " +
+        padTime(shifted.getUTCDate(), 2) + "/" +
+        padTime(shifted.getUTCMonth() + 1, 2) + "/" +
+        shifted.getUTCFullYear();
+}
+
 function isObjectBody(body) {
     return body !== null && typeof body === "object" && !Array.isArray(body);
 }
@@ -213,8 +228,8 @@ router.post("/api/acqhub/payment/partner/v2/:partnerCode/initialize", (req, res)
     const payType = asString(body.payType).trim() || "QRPOS";
     const paymentRef = generatePaymentRef();
     const qrPayload = buildMockQrPayload(paymentRef, amount, billNumber || paymentRef);
-    const serverTime = nowIso();
-    const createdAt = serverTime;
+    const serverTime = formatServerTime(new Date());
+    const createdAt = nowIso();
 
     console.log("QR initialize", partnerCode, mid, tid, amount, billNumber);
 
@@ -329,7 +344,7 @@ router.post("/api/acqhub/payment/partner/v2/:partnerCode/inquiry", (req, res) =>
             subCode: "01",
             subMessage: "Payment not found",
             requestId: requestId,
-            serverTime: nowIso(),
+            serverTime: formatServerTime(new Date()),
             operation: "INQUIRY",
             nodeIn: "MOCK",
             nodeOut: "MOCK",
@@ -343,7 +358,8 @@ router.post("/api/acqhub/payment/partner/v2/:partnerCode/inquiry", (req, res) =>
 
     const responseAmount = row.amount != null ? row.amount : amount;
     const payRef = row.paymentRef;
-    const serverTime = nowIso();
+    const serverTime = formatServerTime(new Date());
+    const txnTime = nowIso();
     const outcome = inquiryOutcome(row.payStatus);
 
     return res.json({
@@ -364,7 +380,7 @@ router.post("/api/acqhub/payment/partner/v2/:partnerCode/inquiry", (req, res) =>
         creditAccountCurrency: "VND",
         creditAccountName: "",
         payRef: payRef,
-        txnDate: serverTime,
+        txnDate: txnTime,
         remark: outcome.remark,
         amount: responseAmount,
         tid: row.tid,
@@ -373,8 +389,8 @@ router.post("/api/acqhub/payment/partner/v2/:partnerCode/inquiry", (req, res) =>
         partnerRefId: payRef,
         teller: "",
         sequence: "",
-        postingDate: serverTime.substring(0, 10),
-        pcTime: serverTime,
+        postingDate: txnTime.substring(0, 10),
+        pcTime: txnTime,
         costCenter: "",
         addData: null,
         payStatus: outcome.payStatus,

@@ -43,13 +43,136 @@
             background: #eee;
         }
 
-        select {
+        .topbar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 16px;
+            margin: 0 0 12px;
+        }
+
+        .topbar form {
+            margin: 0;
+        }
+
+        .topbar a {
+            color: #1a4f9c;
+            font-size: 15px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .topbar button.reset-server {
+            border: 0;
+            background: transparent;
+            color: #b00020;
+            padding: 0;
             font: inherit;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        th:last-child {
+            font-size: 16px;
+        }
+
+        select {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.3;
+            padding: 8px 10px;
+            min-height: 48px;
+            border: 1px solid #ccc;
+            background: #fff;
+            color: #122;
+        }
+
+        @media (max-width: 760px) {
+            body {
+                margin: 12px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            table {
+                background: transparent;
+            }
+
+            thead {
+                display: none;
+            }
+
+            table,
+            tbody,
+            tr,
+            td {
+                display: block;
+                width: 100%;
+            }
+
+            tr {
+                margin: 0 0 12px;
+                background: #fff;
+                border: 1px solid #ccc;
+            }
+
+            td {
+                display: grid;
+                grid-template-columns: 7.2rem minmax(0, 1fr);
+                gap: 8px 12px;
+                align-items: start;
+                border: 0;
+                border-bottom: 1px solid #eee;
+                padding: 10px 12px;
+                text-align: right;
+                word-break: break-word;
+            }
+
+            td:last-child {
+                border-bottom: 0;
+            }
+
+            td::before {
+                content: attr(data-label);
+                color: #666;
+                font-size: 12px;
+                font-weight: bold;
+                text-align: left;
+            }
+
+            td:has(select) {
+                display: block;
+                background: #fff;
+                padding: 12px;
+                text-align: left;
+            }
+
+            td:has(select)::before {
+                display: block;
+                margin-bottom: 8px;
+                font-size: 16px;
+            }
+
+            select {
+                width: 100%;
+                margin-top: 0;
+                font-size: 18px;
+                font-weight: 700;
+            }
         }
     </style>
 </head>
 <body>
-    <p style="margin:0 0 16px;"><a href="/logout">Đăng xuất</a></p>
+    <div class="topbar">
+        <form method="post" action="/restart" onsubmit="return confirm('Reset server? Server sẽ khởi động lại.');">
+            <input type="hidden" name="next" value="/shbvn">
+            <button type="submit" class="reset-server">Reset server</button>
+        </form>
+        <a href="/logout">Đăng xuất</a>
+    </div>
     <h1>SHBVN QR</h1>
     <p class="status">POS debug gọi <code>http://113.161.81.81:21501/api/</code>. Chọn Thành công khi máy POS đang hiện QR.</p>
     <p id="status" class="status">Loading...</p>
@@ -77,15 +200,108 @@
             });
         };
 
-        function escapeHtml(value) {
-            return String(value == null ? "" : value)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;");
+        var resultMenuOpen = false;
+
+        function resultLabel(value) {
+            if (value === "pending") {
+                return "Đang chờ";
+            }
+            if (value === "success") {
+                return "Thành công";
+            }
+            return "Thất bại";
+        }
+
+        function fillResultSelect(select, status) {
+            if (select.options.length === 0) {
+                ["pending", "success", "failed"].forEach(function (value) {
+                    var option = document.createElement("option");
+                    option.value = value;
+                    option.textContent = resultLabel(value);
+                    select.appendChild(option);
+                });
+            }
+
+            if (document.activeElement !== select && select.value !== status) {
+                select.value = status;
+            }
+        }
+
+        function createRow(item) {
+            var row = document.createElement("tr");
+            row.setAttribute("data-id", item.transaction_id);
+            [
+                ["createdAt", "Thời gian"],
+                ["tid", "TID"],
+                ["mid", "MID"],
+                ["amount", "Số tiền"],
+                ["virtual_acc_no", "Tài khoản ảo"]
+            ].forEach(function (pair) {
+                var cell = document.createElement("td");
+                cell.setAttribute("data-label", pair[1]);
+                cell.textContent = item[pair[0]] == null ? "" : String(item[pair[0]]);
+                row.appendChild(cell);
+            });
+
+            var resultCell = document.createElement("td");
+            resultCell.setAttribute("data-label", "Kết quả");
+            var select = document.createElement("select");
+            select.setAttribute("data-id", item.transaction_id);
+            fillResultSelect(select, item.status);
+            resultCell.appendChild(select);
+            row.appendChild(resultCell);
+            return row;
+        }
+
+        function updateRow(row, item) {
+            var keys = ["createdAt", "tid", "mid", "amount", "virtual_acc_no"];
+
+            for (var i = 0; i < keys.length; i++) {
+                var text = item[keys[i]] == null ? "" : String(item[keys[i]]);
+                if (row.children[i].textContent !== text) {
+                    row.children[i].textContent = text;
+                }
+            }
+
+            fillResultSelect(row.querySelector("select"), item.status);
+        }
+
+        function renderPayments(items) {
+            var body = document.getElementById("rows");
+            var existing = {};
+
+            Array.prototype.forEach.call(body.querySelectorAll("tr[data-id]"), function (row) {
+                existing[row.getAttribute("data-id")] = row;
+            });
+
+            items.forEach(function (item, index) {
+                var row = existing[item.transaction_id];
+
+                if (!row) {
+                    row = createRow(item);
+                } else {
+                    updateRow(row, item);
+                    delete existing[item.transaction_id];
+                }
+
+                if (body.children[index] !== row) {
+                    body.insertBefore(row, body.children[index] || null);
+                }
+            });
+
+            Object.keys(existing).forEach(function (id) {
+                var row = existing[id];
+                if (row.querySelector("select") !== document.activeElement) {
+                    row.remove();
+                }
+            });
         }
 
         function loadPayments() {
+            if (resultMenuOpen) {
+                return;
+            }
+
             fetch("/api/shbvn/payments")
                 .then(function (response) {
                     if (!response.ok) {
@@ -94,6 +310,10 @@
                     return response.json();
                 })
                 .then(function (items) {
+                    if (resultMenuOpen) {
+                        return;
+                    }
+
                     var status = document.getElementById("status");
                     var body = document.getElementById("rows");
 
@@ -104,20 +324,7 @@
                     }
 
                     status.textContent = items.length + " giao dịch";
-                    body.innerHTML = items.map(function (item) {
-                        return "<tr>" +
-                            "<td>" + escapeHtml(item.createdAt) + "</td>" +
-                            "<td>" + escapeHtml(item.tid) + "</td>" +
-                            "<td>" + escapeHtml(item.mid) + "</td>" +
-                            "<td>" + escapeHtml(item.amount) + "</td>" +
-                            "<td>" + escapeHtml(item.virtual_acc_no) + "</td>" +
-                            "<td><select data-id=\"" + escapeHtml(item.transaction_id) + "\">" +
-                            ["pending", "success", "failed"].map(function (value) {
-                                var label = value === "pending" ? "Đang chờ" : value === "success" ? "Thành công" : "Thất bại";
-                                return "<option value=\"" + value + "\"" + (item.status === value ? " selected" : "") + ">" + label + "</option>";
-                            }).join("") +
-                            "</select></td></tr>";
-                    }).join("");
+                    renderPayments(items);
                 })
                 .catch(function () {
                     var status = document.getElementById("status");
@@ -126,11 +333,33 @@
                 });
         }
 
+        document.body.addEventListener("touchstart", function (event) {
+            resultMenuOpen = !!event.target.closest("select[data-id]");
+        }, true);
+
+        document.body.addEventListener("pointerdown", function (event) {
+            resultMenuOpen = !!event.target.closest("select[data-id]");
+        }, true);
+
+        document.body.addEventListener("focusin", function (event) {
+            if (event.target.closest("select[data-id]")) {
+                resultMenuOpen = true;
+            }
+        });
+
+        document.body.addEventListener("focusout", function (event) {
+            if (event.target.closest("select[data-id]")) {
+                resultMenuOpen = false;
+            }
+        });
+
         document.body.addEventListener("change", function (event) {
             var select = event.target.closest("select[data-id]");
             if (!select) {
                 return;
             }
+
+            resultMenuOpen = false;
 
             fetch("/api/shbvn/payments/" + encodeURIComponent(select.getAttribute("data-id")) + "/status", {
                 method: "POST",

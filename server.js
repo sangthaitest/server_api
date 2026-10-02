@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const path = require("path");
+const { spawn } = require("child_process");
 const express = require("express");
 const db = require("./db");
 const srsApi = require("./srs/api");
@@ -7,6 +8,7 @@ const qrApi = require("./qr/api");
 const edcc = require("./edcc/api");
 const shbvn = require("./shbvn/api");
 
+const BOOT_ID = crypto.randomBytes(8).toString("hex");
 const LAB_USER = "admin";
 const LAB_PASS = "admin";
 const SESSION_COOKIE = "lab_session";
@@ -110,7 +112,7 @@ function sessionToken(req) {
 }
 
 function isLabPath(urlPath) {
-    return urlPath === "/srs" || urlPath === "/qr" || urlPath === "/edcc" || urlPath === "/history" || urlPath === "/shbvn" || urlPath.startsWith("/api/srs/") || urlPath.startsWith("/api/qr/") || urlPath.startsWith("/api/edcc/") || urlPath.startsWith("/api/shbvn/");
+    return urlPath === "/srs" || urlPath === "/qr" || urlPath === "/edcc" || urlPath === "/history" || urlPath === "/shbvn" || urlPath === "/restart" || urlPath.startsWith("/api/srs/") || urlPath.startsWith("/api/qr/") || urlPath.startsWith("/api/edcc/") || urlPath.startsWith("/api/shbvn/");
 }
 
 function safeNext(value) {
@@ -192,7 +194,8 @@ function requireNonEmptyString(value, fieldName) {
 app.get("/api/health", (req, res) => {
     res.json({
         status: "ok",
-        server: "my-pc"
+        server: "my-pc",
+        bootId: BOOT_ID
     });
 });
 
@@ -395,6 +398,97 @@ app.post("/login", (req, res) => {
     sessions.set(token, { expiresAt: Date.now() + SESSION_MS });
     setSessionCookie(res, token);
     res.redirect(nextUrl);
+});
+
+let restarting = false;
+
+function restartPage(nextUrl, bootId) {
+    return "<!DOCTYPE html>\n" +
+        "<html lang=\"vi\">\n" +
+        "<head>\n" +
+        "<meta charset=\"UTF-8\">\n" +
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+        "<title>Reset server</title>\n" +
+        "<style>\n" +
+        "body { font-family: Arial, sans-serif; margin: 24px; color: #222; background: #f7f7f7; }\n" +
+        "h1 { margin: 0 0 12px; font-size: 24px; }\n" +
+        "p { margin: 0; color: #555; }\n" +
+        ".error { color: #b00020; }\n" +
+        "</style>\n" +
+        "</head>\n" +
+        "<body>\n" +
+        "<h1>Reset server</h1>\n" +
+        "<p id=\"status\">Đang khởi động lại...</p>\n" +
+        "<script>\n" +
+        "var nextUrl = " + JSON.stringify(nextUrl) + ";\n" +
+        "var previousBootId = " + JSON.stringify(bootId) + ";\n" +
+        "var started = Date.now();\n" +
+        "function fail() {\n" +
+        "    var status = document.getElementById(\"status\");\n" +
+        "    status.className = \"error\";\n" +
+        "    status.textContent = \"Server chưa phản hồi. Thử tải lại trang.\";\n" +
+        "}\n" +
+        "function ping() {\n" +
+        "    if (Date.now() - started > 15000) {\n" +
+        "        fail();\n" +
+        "        return;\n" +
+        "    }\n" +
+        "    fetch(\"/api/health\", { cache: \"no-store\" })\n" +
+        "        .then(function (response) {\n" +
+        "            if (!response.ok) {\n" +
+        "                throw new Error(\"down\");\n" +
+        "            }\n" +
+        "            return response.json();\n" +
+        "        })\n" +
+        "        .then(function (body) {\n" +
+        "            if (!body || body.bootId === previousBootId) {\n" +
+        "                setTimeout(ping, 300);\n" +
+        "                return;\n" +
+        "            }\n" +
+        "            document.getElementById(\"status\").textContent = \"Server đã chạy lại.\";\n" +
+        "            setTimeout(function () {\n" +
+        "                window.location.href = nextUrl;\n" +
+        "            }, 400);\n" +
+        "        })\n" +
+        "        .catch(function () {\n" +
+        "            setTimeout(ping, 400);\n" +
+        "        });\n" +
+        "}\n" +
+        "setTimeout(ping, 400);\n" +
+        "</script>\n" +
+        "</body>\n" +
+        "</html>\n";
+}
+
+app.post("/restart", (req, res) => {
+    const nextUrl = safeNext(req.body && req.body.next);
+
+    if (restarting) {
+        res.redirect(nextUrl);
+        return;
+    }
+
+    restarting = true;
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(restartPage(nextUrl, BOOT_ID));
+
+    res.on("finish", () => {
+        const child = spawn(process.execPath, [
+            path.join(__dirname, "scripts", "service.js"),
+            "restart-after",
+            String(process.pid)
+        ], {
+            cwd: __dirname,
+            detached: true,
+            windowsHide: true,
+            stdio: "ignore"
+        });
+
+        child.unref();
+        setTimeout(() => {
+            process.exit(0);
+        }, 500);
+    });
 });
 
 app.get("/logout", (req, res) => {

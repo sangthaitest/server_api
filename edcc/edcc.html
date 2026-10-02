@@ -17,6 +17,41 @@
             font-size: 24px;
         }
 
+        .topbar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 16px;
+            margin: 0 0 12px;
+        }
+
+        .topbar form {
+            margin: 0;
+        }
+
+        .topbar a:first-child {
+            margin-right: auto;
+        }
+
+        .topbar a {
+            color: #1a4f9c;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .topbar button.reset-server {
+            border: 0;
+            background: transparent;
+            color: #b00020;
+            padding: 0;
+            font: inherit;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            min-height: 0;
+            flex: none;
+        }
+
         a {
             color: #1a4f9c;
         }
@@ -83,10 +118,58 @@
             min-height: 220px;
             max-height: 480px;
         }
+
+        @media (max-width: 760px) {
+            body {
+                margin: 12px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .card {
+                padding: 12px;
+            }
+
+            label {
+                display: block;
+                margin: 0 0 12px;
+            }
+
+            input {
+                width: 100%;
+                box-sizing: border-box;
+                min-height: 44px;
+                font-size: 16px;
+            }
+
+            button {
+                min-height: 44px;
+                font-size: 16px;
+                flex: 1 1 46%;
+            }
+
+            .status,
+            #listen {
+                word-break: break-word;
+            }
+
+            pre {
+                min-height: 160px;
+            }
+        }
     </style>
 </head>
 <body>
-    <p style="margin:0 0 16px;"><a href="/history">History</a> · <a href="/logout">Đăng xuất</a></p>
+    <div class="topbar">
+        <a href="/history">History</a>
+        <form method="post" action="/restart" onsubmit="return confirm('Reset server? Server sẽ khởi động lại.');">
+            <input type="hidden" name="next" value="/edcc">
+            <button type="submit" class="reset-server">Reset server</button>
+        </form>
+        <a href="/logout">Đăng xuất</a>
+    </div>
     <h1>EDCC</h1>
     <p id="status" class="status">Loading...</p>
     <div class="card">

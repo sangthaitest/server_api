@@ -88,8 +88,38 @@
             text-decoration: underline;
         }
 
+        .topbar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 16px;
+            margin: 0 0 12px;
+        }
+
+        .topbar form {
+            margin: 0;
+        }
+
+        .topbar a {
+            color: #1a4f9c;
+            font-size: 15px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .topbar button.reset-server {
+            border: 0;
+            background: transparent;
+            color: #b00020;
+            padding: 0;
+            font: inherit;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
         .detail-page {
-            margin: -24px;
+            margin: 0 -24px -24px;
             min-height: 100vh;
             background: #eeecec;
             padding: 16px 12px 40px;
@@ -265,10 +295,85 @@
             font-size: 14px;
             line-height: 1.35;
         }
+
+        @media (max-width: 760px) {
+            body {
+                margin: 12px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .detail-page {
+                margin: 0 -12px -12px;
+                padding: 12px 8px 32px;
+            }
+
+            table.list {
+                background: transparent;
+            }
+
+            table.list thead {
+                display: none;
+            }
+
+            table.list,
+            table.list tbody,
+            table.list tr,
+            table.list td {
+                display: block;
+                width: 100%;
+            }
+
+            table.list tr {
+                margin: 0 0 12px;
+                background: #fff;
+                border: 1px solid #ccc;
+            }
+
+            table.list td,
+            table.list tbody tr:nth-child(even) td,
+            table.list tbody tr:hover td {
+                display: grid;
+                grid-template-columns: 7.2rem minmax(0, 1fr);
+                gap: 8px 12px;
+                align-items: start;
+                border: 0;
+                border-bottom: 1px solid #eee;
+                background: #fff;
+                padding: 10px 12px;
+                text-align: right;
+                word-break: break-word;
+            }
+
+            table.list td:last-child {
+                border-bottom: 0;
+            }
+
+            table.list td::before {
+                content: attr(data-label);
+                color: #666;
+                font-size: 12px;
+                font-weight: bold;
+                text-align: left;
+            }
+
+            table.list a {
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
+        }
     </style>
 </head>
 <body>
-    <p style="margin:0 0 16px;"><a href="/logout">Đăng xuất</a></p>
+    <div class="topbar">
+        <form method="post" action="/restart" onsubmit="return confirm('Reset server? Server sẽ khởi động lại.');">
+            <input type="hidden" name="next" value="/srs">
+            <button type="submit" class="reset-server">Reset server</button>
+        </form>
+        <a href="/logout">Đăng xuất</a>
+    </div>
     <div id="list-view">
         <h1>SRS Transactions</h1>
         <p id="status" class="status">Loading...</p>
@@ -567,15 +672,15 @@
                     tbody.innerHTML = transactions.map(function (item) {
                         var href = "/srs?id=" + encodeURIComponent(item.transactionId);
                         return "<tr data-id=\"" + escapeHtml(item.transactionId) + "\">" +
-                            "<td><a href=\"" + href + "\">" + escapeHtml(item.transactionId) + "</a></td>" +
-                            "<td>" + escapeHtml(item.version) + "</td>" +
-                            "<td>" + escapeHtml(item.transactionType) + "</td>" +
-                            "<td>" + escapeHtml(item.approvalCode) + "</td>" +
-                            "<td>" + escapeHtml(item.merchantName) + "</td>" +
-                            "<td>" + escapeHtml(item.terminalId) + "</td>" +
-                            "<td>" + escapeHtml(item.totalAmount) + "</td>" +
-                            "<td>" + escapeHtml(item.deviceId) + "</td>" +
-                            "<td>" + escapeHtml(item.createdAt) + "</td>" +
+                            "<td data-label=\"Transaction ID\"><a href=\"" + href + "\">" + escapeHtml(item.transactionId) + "</a></td>" +
+                            "<td data-label=\"Version\">" + escapeHtml(item.version) + "</td>" +
+                            "<td data-label=\"Type\">" + escapeHtml(item.transactionType) + "</td>" +
+                            "<td data-label=\"Approval\">" + escapeHtml(item.approvalCode) + "</td>" +
+                            "<td data-label=\"Merchant\">" + escapeHtml(item.merchantName) + "</td>" +
+                            "<td data-label=\"Terminal\">" + escapeHtml(item.terminalId) + "</td>" +
+                            "<td data-label=\"Amount\">" + escapeHtml(item.totalAmount) + "</td>" +
+                            "<td data-label=\"Device ID\">" + escapeHtml(item.deviceId) + "</td>" +
+                            "<td data-label=\"Created\">" + escapeHtml(item.createdAt) + "</td>" +
                         "</tr>";
                     }).join("");
                 })

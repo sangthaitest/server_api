@@ -46,6 +46,64 @@
         tr:nth-child(even) td {
             background: #fafafa;
         }
+
+        @media (max-width: 760px) {
+            body {
+                margin: 12px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            table {
+                background: transparent;
+            }
+
+            thead {
+                display: none;
+            }
+
+            table,
+            tbody,
+            tr,
+            td {
+                display: block;
+                width: 100%;
+            }
+
+            tr {
+                margin: 0 0 12px;
+                background: #fff;
+                border: 1px solid #ccc;
+            }
+
+            td,
+            tr:nth-child(even) td {
+                display: grid;
+                grid-template-columns: 7.2rem minmax(0, 1fr);
+                gap: 8px 12px;
+                align-items: start;
+                border: 0;
+                border-bottom: 1px solid #eee;
+                background: #fff;
+                padding: 10px 12px;
+                text-align: right;
+                word-break: break-word;
+            }
+
+            td:last-child {
+                border-bottom: 0;
+            }
+
+            td::before {
+                content: attr(data-label);
+                color: #666;
+                font-size: 12px;
+                font-weight: bold;
+                text-align: left;
+            }
+        }
     </style>
 </head>
 <body>
@@ -94,14 +152,14 @@
                 status.textContent = devices.length + " device(s)";
                 tbody.innerHTML = devices.map(function (device) {
                     return "<tr>" +
-                        "<td>" + escapeHtml(device.deviceId) + "</td>" +
-                        "<td>" + escapeHtml(device.manufacturer) + "</td>" +
-                        "<td>" + escapeHtml(device.model) + "</td>" +
-                        "<td>" + escapeHtml(device.androidVersion) + "</td>" +
-                        "<td>" + escapeHtml(device.sdkVersion) + "</td>" +
-                        "<td>" + escapeHtml(device.appVersion) + "</td>" +
-                        "<td>" + escapeHtml(device.ipAddress) + "</td>" +
-                        "<td>" + escapeHtml(device.updatedAt) + "</td>" +
+                        "<td data-label=\"Device ID\">" + escapeHtml(device.deviceId) + "</td>" +
+                        "<td data-label=\"Manufacturer\">" + escapeHtml(device.manufacturer) + "</td>" +
+                        "<td data-label=\"Model\">" + escapeHtml(device.model) + "</td>" +
+                        "<td data-label=\"Android\">" + escapeHtml(device.androidVersion) + "</td>" +
+                        "<td data-label=\"SDK\">" + escapeHtml(device.sdkVersion) + "</td>" +
+                        "<td data-label=\"App Version\">" + escapeHtml(device.appVersion) + "</td>" +
+                        "<td data-label=\"IP\">" + escapeHtml(device.ipAddress) + "</td>" +
+                        "<td data-label=\"Last Update\">" + escapeHtml(device.updatedAt) + "</td>" +
                     "</tr>";
                 }).join("");
             })
