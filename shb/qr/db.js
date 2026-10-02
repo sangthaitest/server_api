@@ -1,7 +1,7 @@
 const path = require("path");
 const Database = require("better-sqlite3");
 
-const shbvnDb = new Database(path.join(__dirname, "..", "data", "shbvn.db"));
+const shbvnDb = new Database(path.join(__dirname, "..", "..", "data", "shbvn.db"));
 
 shbvnDb.exec(`
     CREATE TABLE IF NOT EXISTS shbvn_devices (

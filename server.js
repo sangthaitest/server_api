@@ -6,7 +6,7 @@ const db = require("./db");
 const srsApi = require("./srs/api");
 const qrApi = require("./qr/api");
 const edcc = require("./edcc/api");
-const shbvn = require("./shbvn/api");
+const shb = require("./shb/api");
 
 const BOOT_ID = crypto.randomBytes(8).toString("hex");
 const LAB_USER = "admin";
@@ -55,9 +55,11 @@ app.use(requireLabAuth);
 app.use(srsApi);
 app.use(qrApi);
 app.use(edcc.router);
-app.use(shbvn.router);
+app.use("/shb/qr", shb.qr.router);
+app.use("/shb/iso8583", shb.iso8583.router);
 edcc.start();
-shbvn.start(app);
+shb.qr.start(app);
+shb.iso8583.start();
 
 function readCookie(req, name) {
     const header = req.headers.cookie || "";
@@ -112,7 +114,7 @@ function sessionToken(req) {
 }
 
 function isLabPath(urlPath) {
-    return urlPath === "/srs" || urlPath === "/qr" || urlPath === "/edcc" || urlPath === "/history" || urlPath === "/shbvn" || urlPath === "/restart" || urlPath.startsWith("/api/srs/") || urlPath.startsWith("/api/qr/") || urlPath.startsWith("/api/edcc/") || urlPath.startsWith("/api/shbvn/");
+    return urlPath === "/srs" || urlPath === "/qr" || urlPath === "/edcc" || urlPath === "/history" || urlPath === "/shb/qr" || urlPath === "/shb/iso8583" || urlPath === "/restart" || urlPath.startsWith("/api/srs/") || urlPath.startsWith("/api/qr/") || urlPath.startsWith("/api/edcc/") || urlPath.startsWith("/shb/qr/api/payments") || urlPath.startsWith("/shb/iso8583/api/");
 }
 
 function safeNext(value) {
@@ -120,11 +122,11 @@ function safeNext(value) {
         return "/srs";
     }
 
-    if (value === "/srs" || value === "/qr" || value === "/edcc" || value === "/history" || value === "/shbvn") {
+    if (value === "/srs" || value === "/qr" || value === "/edcc" || value === "/history" || value === "/shb/qr" || value === "/shb/iso8583") {
         return value;
     }
 
-    if (/^\/srs\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/qr\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/edcc\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/history\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/shbvn\?[A-Za-z0-9._~%=&-]*$/.test(value)) {
+    if (/^\/srs\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/qr\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/edcc\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/history\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/shb\/qr\?[A-Za-z0-9._~%=&-]*$/.test(value) || /^\/shb\/iso8583\?[A-Za-z0-9._~%=&-]*$/.test(value)) {
         return value;
     }
 
@@ -518,8 +520,20 @@ app.get("/history", (req, res) => {
     res.sendFile(path.join(__dirname, "edcc", "history.html"));
 });
 
+app.get("/shb/qr", (req, res) => {
+    res.sendFile(path.join(__dirname, "shb", "qr", "shbvn.html"));
+});
+
+app.get("/shb/iso8583", (req, res) => {
+    res.sendFile(path.join(__dirname, "shb", "iso8583", "iso8583.html"));
+});
+
 app.get("/shbvn", (req, res) => {
-    res.sendFile(path.join(__dirname, "shbvn", "shbvn.html"));
+    res.redirect("/shb/qr");
+});
+
+app.get("/iso8583", (req, res) => {
+    res.redirect("/shb/iso8583");
 });
 
 app.listen({ port: PORT, host: "::", ipv6Only: false }, () => {

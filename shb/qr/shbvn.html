@@ -168,13 +168,13 @@
 <body>
     <div class="topbar">
         <form method="post" action="/restart" onsubmit="return confirm('Reset server? Server sẽ khởi động lại.');">
-            <input type="hidden" name="next" value="/shbvn">
+            <input type="hidden" name="next" value="/shb/qr">
             <button type="submit" class="reset-server">Reset server</button>
         </form>
         <a href="/logout">Đăng xuất</a>
     </div>
     <h1>SHBVN QR</h1>
-    <p class="status">POS debug gọi <code>http://113.161.81.81:21501/api/</code>. Chọn Thành công khi máy POS đang hiện QR.</p>
+    <p class="status">POS debug gọi <code>http://113.161.81.81:21501/shb/qr/api/</code>. Chọn Thành công khi máy POS đang hiện QR.</p>
     <p id="status" class="status">Loading...</p>
     <table>
         <thead>
@@ -302,7 +302,7 @@
                 return;
             }
 
-            fetch("/api/shbvn/payments")
+            fetch("/shb/qr/api/payments")
                 .then(function (response) {
                     if (!response.ok) {
                         throw new Error("Failed to load payments");
@@ -361,7 +361,7 @@
 
             resultMenuOpen = false;
 
-            fetch("/api/shbvn/payments/" + encodeURIComponent(select.getAttribute("data-id")) + "/status", {
+            fetch("/shb/qr/api/payments/" + encodeURIComponent(select.getAttribute("data-id")) + "/status", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: select.value })

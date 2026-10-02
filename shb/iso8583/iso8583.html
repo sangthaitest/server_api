@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISO 8583</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            color: #1c1c1c;
+            background: #f2f2f2;
+            font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+            font-size: 12px;
+        }
+
+        button, input, select { font: inherit; }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 10px;
+            padding: 8px 10px;
+            background: #f7f7f7;
+            border-bottom: 1px solid #d0d0d0;
+        }
+
+        .toolbar label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .toolbar input,
+        .toolbar select {
+            height: 24px;
+            border: 1px solid #b5b5b5;
+            background: #fff;
+            padding: 0 6px;
+        }
+
+        .toolbar input[type="text"] { width: 110px; }
+        .toolbar input[type="datetime-local"] { width: 168px; }
+
+        .toolbar button.confirm {
+            height: 24px;
+            border: 1px solid #2f5f9e;
+            background: #3d6fbf;
+            color: #fff;
+            padding: 0 14px;
+            cursor: pointer;
+        }
+
+        .spacer { flex: 1; }
+
+        .linkish {
+            border: 0;
+            background: transparent;
+            color: #1a4f9c;
+            padding: 0;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .linkish.danger { color: #b00020; }
+
+        .status-line {
+            padding: 4px 10px 0;
+            color: #666;
+        }
+
+        .status-line.error { color: #b00020; }
+
+        .alert {
+            margin: 4px 10px 0;
+            color: #d00000;
+            font-weight: 700;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .grid-wrap {
+            margin: 8px 10px 16px;
+            overflow: auto;
+            max-height: calc(100vh - 120px);
+            border: 1px solid #c8c8c8;
+            background: #fff;
+        }
+
+        table {
+            width: max-content;
+            min-width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border-right: 1px solid #e4e4e4;
+            border-bottom: 1px solid #d5d5d5;
+            padding: 3px 8px;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #ececec;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .grid-wrap tbody tr { background: #9adf63; cursor: pointer; }
+        .grid-wrap tbody tr.fail { background: #f3a3a3; }
+        .grid-wrap tbody tr:hover { filter: brightness(0.97); }
+        .grid-wrap tbody tr.selected { outline: 2px solid #1a4f9c; outline-offset: -2px; }
+        .fields tbody tr { background: #fff; cursor: default; }
+
+        td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        td.mono, th.mono { font-family: Consolas, "Courier New", monospace; }
+
+        .detail-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.28);
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 48px 16px 16px;
+            z-index: 5;
+        }
+
+        .detail-backdrop[hidden] { display: none; }
+
+        .detail-card {
+            width: min(860px, 100%);
+            max-height: calc(100vh - 80px);
+            overflow: auto;
+            background: #fff;
+            border: 1px solid #bdbdbd;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
+        }
+
+        .detail-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 12px;
+            background: #ececec;
+            border-bottom: 1px solid #d0d0d0;
+            position: sticky;
+            top: 0;
+        }
+
+        .detail-head strong { font-size: 13px; }
+
+        .detail-head button {
+            height: 24px;
+            border: 1px solid #b5b5b5;
+            background: #fff;
+            padding: 0 10px;
+            cursor: pointer;
+        }
+
+        .detail-note {
+            margin: 0;
+            padding: 10px 12px;
+            color: #8a1020;
+            background: #fff4f4;
+            border-bottom: 1px solid #f0d0d0;
+            white-space: pre-wrap;
+        }
+
+        .facts {
+            display: grid;
+            grid-template-columns: 140px 1fr 140px 1fr;
+            margin: 0;
+        }
+
+        .facts dt, .facts dd {
+            margin: 0;
+            padding: 5px 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .facts dt { color: #666; background: #fafafa; }
+
+        .fields { width: 100%; }
+        .fields th { position: static; }
+        .fields td:last-child { white-space: normal; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="toolbar" id="filters">
+        <label>Business
+            <select id="business" name="business">
+                <option value="ALL">ALL</option>
+            </select>
+        </label>
+        <label>Institute
+            <select id="institute" name="institute">
+                <option value="ALL">ALL</option>
+            </select>
+        </label>
+        <label>
+            <input id="from" name="from" type="datetime-local" step="1">
+        </label>
+        <span>—</span>
+        <label>
+            <input id="to" name="to" type="datetime-local" step="1">
+        </label>
+        <label>Terminal ID
+            <input id="tid" name="tid" type="text" autocomplete="off">
+        </label>
+        <button type="button" class="confirm" id="confirm">Confirm</button>
+        <label>Host Res
+            <select id="response-code">
+                <option value="00">00</option>
+                <option value="05">05</option>
+                <option value="51">51</option>
+                <option value="55">55</option>
+                <option value="91">91</option>
+            </select>
+        </label>
+        <span class="spacer"></span>
+        <form method="post" action="/restart" onsubmit="return confirm('Reset server? Server sẽ khởi động lại.');">
+            <input type="hidden" name="next" value="/shb/iso8583">
+            <button type="submit" class="linkish danger">Reset server</button>
+        </form>
+        <a class="linkish" href="/logout">Đăng xuất</a>
+    </div>
+    <p id="status" class="status-line">Loading...</p>
+    <p id="alert" class="alert" hidden>⚠ Failure! Click for details!</p>
+    <div class="grid-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ALL</th>
+                    <th>Time</th>
+                    <th>Institute</th>
+                    <th>MTI</th>
+                    <th>SR</th>
+                    <th>PG</th>
+                    <th>Proc</th>
+                    <th>AG</th>
+                    <th>Adjt</th>
+                    <th>Cnc</th>
+                    <th>Card Num</th>
+                    <th>P-Code</th>
+                    <th>Amount</th>
+                    <th>Audit Num</th>
+                    <th>POS Entry Mode</th>
+                    <th>Ref Num</th>
+                    <th>Res</th>
+                    <th>Cur</th>
+                    <th>PRV</th>
+                    <th>BYPASS</th>
+                    <th>ISO</th>
+                    <th>Node</th>
+                    <th>Input</th>
+                </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+        </table>
+    </div>
+    <div id="detail" class="detail-backdrop" hidden>
+        <div class="detail-card" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+            <div class="detail-head">
+                <strong id="detail-title">Detail</strong>
+                <button type="button" id="detail-close">Close</button>
+            </div>
+            <p id="detail-note" class="detail-note" hidden></p>
+            <dl id="detail-facts" class="facts"></dl>
+            <table class="fields">
+                <thead>
+                    <tr>
+                        <th>Bit</th>
+                        <th>Field</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody id="detail-fields"></tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        var nativeFetch = window.fetch;
+        var latestState = { messages: [] };
+        var selectedId = null;
+        var applied = {
+            business: "ALL",
+            institute: "ALL",
+            from: "",
+            to: "",
+            tid: ""
+        };
+
+        var fieldNames = {
+            "2": "PAN",
+            "3": "Processing code",
+            "4": "Amount",
+            "11": "Audit number",
+            "12": "Local time",
+            "13": "Local date",
+            "14": "Expiry",
+            "22": "POS entry mode",
+            "23": "Card sequence",
+            "24": "NII",
+            "25": "POS condition",
+            "35": "Track 2",
+            "37": "Reference number",
+            "38": "Approval code",
+            "39": "Response code",
+            "41": "Terminal ID",
+            "42": "Merchant ID",
+            "44": "Additional response",
+            "47": "Additional data",
+            "49": "Currency",
+            "52": "PIN",
+            "54": "Additional amount",
+            "55": "ICC data",
+            "57": "Reserved national",
+            "62": "Invoice",
+            "64": "MAC"
+        };
+
+        window.fetch = function (url, options) {
+            return nativeFetch(url, options).then(function (response) {
+                if (response.status === 401) {
+                    window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search);
+                }
+                return response;
+            });
+        };
+
+        function pad(value, width) {
+            return String(value).padStart(width, "0");
+        }
+
+        function formatTime(iso) {
+            var date = new Date(iso);
+            if (isNaN(date.getTime())) {
+                return iso || "";
+            }
+            return pad(date.getHours(), 2) + ":" + pad(date.getMinutes(), 2) + ":" + pad(date.getSeconds(), 2) + "." + pad(date.getMilliseconds(), 3);
+        }
+
+        function localInputValue(date) {
+            return date.getFullYear() + "-" + pad(date.getMonth() + 1, 2) + "-" + pad(date.getDate(), 2) + "T" + pad(date.getHours(), 2) + ":" + pad(date.getMinutes(), 2) + ":" + pad(date.getSeconds(), 2);
+        }
+
+        function parsedFields(item) {
+            if (!item.detail || item.detail.charAt(0) !== "{") {
+                return null;
+            }
+            try {
+                return JSON.parse(item.detail);
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function fieldText(fields, id) {
+            if (!fields || fields[id] == null) {
+                return "";
+            }
+            return String(fields[id]);
+        }
+
+        function instituteOf(item) {
+            var nii = fieldText(parsedFields(item), "24");
+            return nii ? nii.padStart(4, "0") : "";
+        }
+
+        function auditOf(item) {
+            return fieldText(parsedFields(item), "11");
+        }
+
+        function currencyOf(item) {
+            return fieldText(parsedFields(item), "49");
+        }
+
+        function failed(item) {
+            return item.responseCode !== "00";
+        }
+
+        function nodeOf(item) {
+            var remote = String(item.remote || "");
+            var slash = remote.lastIndexOf(":");
+            return slash > 0 ? remote.slice(0, slash).replace(/^::ffff:/, "") : remote;
+        }
+
+        function visibleMessages() {
+            return (latestState.messages || []).filter(function (item) {
+                if (applied.business !== "ALL" && item.mti !== applied.business) {
+                    return false;
+                }
+                if (applied.institute !== "ALL" && instituteOf(item) !== applied.institute) {
+                    return false;
+                }
+                if (applied.tid && String(item.tid || "").indexOf(applied.tid) === -1) {
+                    return false;
+                }
+                var when = new Date(item.createdAt);
+                if (applied.from && !isNaN(when.getTime()) && when < new Date(applied.from)) {
+                    return false;
+                }
+                if (applied.to && !isNaN(when.getTime()) && when > new Date(applied.to)) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        function fillSelect(select, values, current) {
+            var chosen = current || select.value || "ALL";
+            select.innerHTML = "";
+            var all = document.createElement("option");
+            all.value = "ALL";
+            all.textContent = "ALL";
+            select.appendChild(all);
+            values.forEach(function (value) {
+                var option = document.createElement("option");
+                option.value = value;
+                option.textContent = value;
+                select.appendChild(option);
+            });
+            select.value = values.indexOf(chosen) >= 0 || chosen === "ALL" ? chosen : "ALL";
+        }
+
+        function displayValue(value) {
+            var text = value == null ? "" : String(value);
+            if (/[\u0000-\u0008\u000e-\u001f]/.test(text) || text.length > 240) {
+                return "binary " + text.length + " bytes";
+            }
+            return text;
+        }
+
+        function addFact(list, label, value) {
+            var term = document.createElement("dt");
+            var data = document.createElement("dd");
+            term.textContent = label;
+            data.textContent = value == null || value === "" ? "—" : String(value);
+            list.appendChild(term);
+            list.appendChild(data);
+        }
+
+        function replyMti(mti) {
+            if (!/^\d{4}$/.test(mti || "")) {
+                return "";
+            }
+            if (mti.charAt(2) !== "0" && mti.charAt(2) !== "2") {
+                return mti;
+            }
+            return mti.slice(0, 2) + "1" + mti.charAt(3);
+        }
+
+        function showDetail(item) {
+            selectedId = item.id;
+            var fields = parsedFields(item);
+            var title = document.getElementById("detail-title");
+            var note = document.getElementById("detail-note");
+            var facts = document.getElementById("detail-facts");
+            var body = document.getElementById("detail-fields");
+
+            title.textContent = "Detail  " + (item.mti || "—") + "  " + formatTime(item.createdAt);
+            note.hidden = !item.detail || fields;
+            note.textContent = fields ? "" : (item.detail || "");
+            facts.innerHTML = "";
+            addFact(facts, "Time", item.createdAt);
+            addFact(facts, "Remote", item.remote);
+            addFact(facts, "MTI", item.mti);
+            addFact(facts, "Reply MTI", replyMti(item.mti));
+            addFact(facts, "Terminal ID", item.tid);
+            addFact(facts, "Merchant ID", item.mid);
+            addFact(facts, "Card", item.panMasked);
+            addFact(facts, "P-Code", item.processingCode);
+            addFact(facts, "Amount", item.amount);
+            addFact(facts, "Audit Num", auditOf(item));
+            addFact(facts, "POS Entry", item.entryMode);
+            addFact(facts, "Ref Num", item.rrn);
+            addFact(facts, "Res", item.responseCode);
+            addFact(facts, "Approval", item.approvalCode);
+            addFact(facts, "Institute", instituteOf(item));
+            addFact(facts, "Currency", currencyOf(item));
+
+            body.innerHTML = "";
+            if (fields) {
+                Object.keys(fields).sort(function (a, b) { return Number(a) - Number(b); }).forEach(function (bit) {
+                    var row = document.createElement("tr");
+                    ["bit", "name", "value"].forEach(function (key) {
+                        var cell = document.createElement("td");
+                        if (key === "bit") cell.textContent = bit;
+                        if (key === "name") cell.textContent = fieldNames[bit] || "";
+                        if (key === "value") cell.textContent = displayValue(fields[bit]);
+                        row.appendChild(cell);
+                    });
+                    body.appendChild(row);
+                });
+            }
+            document.getElementById("detail").hidden = false;
+        }
+
+        function hideDetail() {
+            selectedId = null;
+            document.getElementById("detail").hidden = true;
+            renderTable();
+        }
+
+        function renderTable() {
+            var messages = visibleMessages();
+            var body = document.getElementById("rows");
+            var alert = document.getElementById("alert");
+            var firstFailure = null;
+
+            body.innerHTML = "";
+            messages.forEach(function (item) {
+                var row = document.createElement("tr");
+                var fields = parsedFields(item);
+                var values = [
+                    "",
+                    formatTime(item.createdAt),
+                    instituteOf(item),
+                    item.mti,
+                    item.mti ? "S" : "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    item.panMasked,
+                    item.processingCode,
+                    item.amount,
+                    auditOf(item),
+                    item.entryMode,
+                    item.rrn,
+                    item.responseCode,
+                    currencyOf(item),
+                    "",
+                    "",
+                    fields ? "01" : "",
+                    nodeOf(item),
+                    item.mti ? "TCP" : ""
+                ];
+
+                row.setAttribute("role", "button");
+                row.setAttribute("aria-label", (item.mti || "message") + " " + formatTime(item.createdAt));
+                if (failed(item)) {
+                    row.className = "fail";
+                    if (!firstFailure) firstFailure = item;
+                }
+                if (item.id === selectedId) {
+                    row.className += " selected";
+                }
+
+                values.forEach(function (value, index) {
+                    var cell = document.createElement("td");
+                    if (index === 0) {
+                        var box = document.createElement("input");
+                        box.type = "checkbox";
+                        box.addEventListener("click", function (event) { event.stopPropagation(); });
+                        cell.appendChild(box);
+                    } else {
+                        cell.textContent = value == null ? "" : String(value);
+                    }
+                    if (index === 12) cell.className = "num";
+                    row.appendChild(cell);
+                });
+                row.addEventListener("click", function () { showDetail(item); renderTable(); });
+                body.appendChild(row);
+            });
+
+            if (firstFailure) {
+                alert.hidden = false;
+                alert.onclick = function () { showDetail(firstFailure); renderTable(); };
+            } else {
+                alert.hidden = true;
+            }
+
+            if (selectedId != null) {
+                var current = messages.filter(function (item) { return item.id === selectedId; })[0];
+                var any = (latestState.messages || []).filter(function (item) { return item.id === selectedId; })[0];
+                if (current || any) {
+                    showDetail(current || any);
+                }
+            }
+        }
+
+        function render(state) {
+            latestState = state;
+            var status = document.getElementById("status");
+            var select = document.getElementById("response-code");
+            var messages = state.messages || [];
+            var institutes = [];
+            var mtis = [];
+
+            messages.forEach(function (item) {
+                var institute = instituteOf(item);
+                if (institute && institutes.indexOf(institute) < 0) institutes.push(institute);
+                if (item.mti && mtis.indexOf(item.mti) < 0) mtis.push(item.mti);
+            });
+            fillSelect(document.getElementById("business"), mtis, applied.business);
+            fillSelect(document.getElementById("institute"), institutes, applied.institute);
+
+            if (!state.listening) {
+                status.className = "status-line error";
+                status.textContent = state.listenError || "Host chưa lắng nghe.";
+            } else {
+                status.className = "status-line";
+                status.textContent = messages.length + " bản tin · host port " + state.port;
+            }
+
+            if (document.activeElement !== select && select.value !== state.responseCode) {
+                select.value = state.responseCode;
+            }
+
+            renderTable();
+        }
+
+        function loadState() {
+            fetch("/shb/iso8583/api/state")
+                .then(function (response) {
+                    if (!response.ok) throw new Error("Failed to load state");
+                    return response.json();
+                })
+                .then(render)
+                .catch(function () {
+                    var status = document.getElementById("status");
+                    status.className = "status-line error";
+                    status.textContent = "Không tải được trạng thái host.";
+                });
+        }
+
+        document.getElementById("confirm").addEventListener("click", function () {
+            applied.business = document.getElementById("business").value;
+            applied.institute = document.getElementById("institute").value;
+            applied.from = document.getElementById("from").value;
+            applied.to = document.getElementById("to").value;
+            applied.tid = document.getElementById("tid").value.trim();
+            renderTable();
+        });
+
+        document.getElementById("response-code").addEventListener("change", function (event) {
+            fetch("/shb/iso8583/api/response", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ responseCode: event.target.value })
+            }).then(loadState);
+        });
+
+        document.getElementById("detail-close").addEventListener("click", hideDetail);
+        document.getElementById("detail").addEventListener("click", function (event) {
+            if (event.target.id === "detail") hideDetail();
+        });
+
+        var start = new Date();
+        start.setHours(0, 0, 0, 0);
+        var end = new Date();
+        end.setHours(23, 59, 59, 0);
+        document.getElementById("from").value = localInputValue(start);
+        document.getElementById("to").value = localInputValue(end);
+        applied.from = document.getElementById("from").value;
+        applied.to = document.getElementById("to").value;
+
+        loadState();
+        setInterval(loadState, 2000);
+    </script>
+</body>
+</html>

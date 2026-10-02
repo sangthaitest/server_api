@@ -188,7 +188,7 @@ router.post("/api/v1/transaction/timeout", (req, res) => {
     res.json(statusBody(findPayment(req.body)));
 });
 
-router.get("/api/shbvn/payments", (req, res) => {
+router.get("/api/payments", (req, res) => {
     const rows = shbvnDb.prepare(`
         SELECT id, transaction_id, virtual_acc_no, tid, mid, amount, status, createdAt, updatedAt
         FROM shbvn_payments
@@ -198,7 +198,7 @@ router.get("/api/shbvn/payments", (req, res) => {
     res.json(rows);
 });
 
-router.post("/api/shbvn/payments/:transactionId/status", (req, res) => {
+router.post("/api/payments/:transactionId/status", (req, res) => {
     const status = text(req.body && req.body.status);
 
     if (status !== "pending" && status !== "success" && status !== "failed") {
