@@ -1,0 +1,19 @@
+PowerShell
+
+cd D:\DataD\api-server
+
+node .\server.js
+
+cloudflared tunnel --url http://localhost:3000
+
+node .\db.js
+
+
+
+Git terminal 
+
+cd D:\DataD\api-server
+git add .gitignore public/login.html public/index.html public/manual.html server.js download/.gitkeep note.txt
+git status
+git commit -m "Add a home menu that requires login, and a manual APK download page for POS update checks."
+git push origin main

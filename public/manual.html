@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Manual</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+            color: #222;
+            background: #f7f7f7;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 24px;
+        }
+
+        .status {
+            margin: 0 0 16px;
+            color: #555;
+        }
+
+        .error {
+            color: #b00020;
+        }
+
+        form {
+            max-width: 420px;
+            background: #fff;
+            border: 1px solid #ccc;
+            padding: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        input, select {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 4px;
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 8px 14px;
+            font-size: 14px;
+        }
+
+        .url {
+            margin-top: 16px;
+            max-width: 720px;
+            word-break: break-all;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Download Manual</h1>
+    <p id="status" class="status">Checking APK...</p>
+    <form id="form">
+        <label>
+            Ref
+            <input id="ref" inputmode="numeric" maxlength="8" placeholder="12345678" autocomplete="off">
+        </label>
+        <label>
+            IP
+            <input id="ip" maxlength="15" placeholder="000.000.000.000" autocomplete="off">
+        </label>
+        <label>
+            Port
+            <input id="port" inputmode="numeric" maxlength="5" placeholder="21501" autocomplete="off">
+        </label>
+        <label>
+            Scheme ID
+            <input id="scheme" inputmode="numeric" maxlength="5" placeholder="123" autocomplete="off">
+        </label>
+        <label>
+            Path
+            <select id="path">
+                <option value="/loadfile.aspx">/loadfile.aspx</option>
+                <option value="/titms/download/loadfile.aspx">/titms/download/loadfile.aspx</option>
+            </select>
+        </label>
+        <button type="submit">Download</button>
+    </form>
+    <p id="url" class="url"></p>
+    <script>
+        var apkReady = false;
+
+        function isValidIp(value) {
+            var parts = value.split(".");
+
+            if (parts.length !== 4) {
+                return false;
+            }
+
+            for (var i = 0; i < parts.length; i++) {
+                if (!/^\d{1,3}$/.test(parts[i])) {
+                    return false;
+                }
+
+                var number = Number(parts[i]);
+
+                if (number > 255) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function buildUrl() {
+            return "http://" + document.getElementById("ip").value.trim() +
+                ":" + document.getElementById("port").value.trim() +
+                document.getElementById("path").value +
+                "?tid=" + encodeURIComponent(document.getElementById("ref").value.trim()) +
+                "&serial=check&version=manual&schemeid=" +
+                encodeURIComponent(document.getElementById("scheme").value.trim()) +
+                "&zip=ver1";
+        }
+
+        function setStatus(message, isError) {
+            var status = document.getElementById("status");
+            status.className = isError ? "status error" : "status";
+            status.textContent = message;
+        }
+
+        document.getElementById("ip").value = window.location.hostname || "127.0.0.1";
+        document.getElementById("port").value = window.location.port || "21501";
+
+        fetch("/api/manual-download")
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error("status");
+                }
+                return response.json();
+            })
+            .then(function (info) {
+                apkReady = !!(info && info.ready);
+
+                if (!apkReady) {
+                    setStatus("Chưa có file APK trong thư mục download.", true);
+                    return;
+                }
+
+                setStatus("APK: " + info.fileName + " (" + info.size + " bytes)");
+            })
+            .catch(function () {
+                setStatus("Không đọc được trạng thái APK.", true);
+            });
+
+        document.getElementById("form").addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            var ref = document.getElementById("ref").value.trim();
+            var ip = document.getElementById("ip").value.trim();
+            var port = document.getElementById("port").value.trim();
+            var scheme = document.getElementById("scheme").value.trim();
+            var portNumber = Number(port);
+
+            if (!/^\d{8}$/.test(ref)) {
+                setStatus("Ref phải đủ 8 chữ số.", true);
+                return;
+            }
+
+            if (!isValidIp(ip)) {
+                setStatus("IP không đúng.", true);
+                return;
+            }
+
+            if (!/^\d+$/.test(port) || portNumber < 1 || portNumber > 65535) {
+                setStatus("Port không đúng.", true);
+                return;
+            }
+
+            if (!/^\d+$/.test(scheme)) {
+                setStatus("Scheme ID không đúng.", true);
+                return;
+            }
+
+            if (!apkReady) {
+                setStatus("Chưa có file APK trong thư mục download.", true);
+                return;
+            }
+
+            var url = buildUrl();
+            document.getElementById("url").textContent = url;
+            setStatus("Đang tải APK...");
+            window.location.href = url;
+        });
+    </script>
+</body>
+</html>

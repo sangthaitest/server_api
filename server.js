@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 const express = require("express");
@@ -17,6 +18,7 @@ const sessions = new Map();
 
 const app = express();
 const PORT = 21501;
+const DOWNLOAD_DIR = path.join(__dirname, "download");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -114,7 +116,7 @@ function sessionToken(req) {
 }
 
 function isLabPath(urlPath) {
-    return urlPath === "/srs" || urlPath === "/qr" || urlPath === "/edcc" || urlPath === "/history" || urlPath === "/shb/qr" || urlPath === "/shb/iso8583" || urlPath === "/restart" || urlPath.startsWith("/api/srs/") || urlPath.startsWith("/api/qr/") || urlPath.startsWith("/api/edcc/") || urlPath.startsWith("/shb/qr/api/payments") || urlPath.startsWith("/shb/iso8583/api/");
+    return urlPath === "/" || urlPath === "/srs" || urlPath === "/qr" || urlPath === "/edcc" || urlPath === "/history" || urlPath === "/shb/qr" || urlPath === "/shb/iso8583" || urlPath === "/restart" || urlPath.startsWith("/api/srs/") || urlPath.startsWith("/api/qr/") || urlPath.startsWith("/api/edcc/") || urlPath.startsWith("/shb/qr/api/payments") || urlPath.startsWith("/shb/iso8583/api/");
 }
 
 function safeNext(value) {
@@ -122,7 +124,7 @@ function safeNext(value) {
         return "/srs";
     }
 
-    if (value === "/srs" || value === "/qr" || value === "/edcc" || value === "/history" || value === "/shb/qr" || value === "/shb/iso8583") {
+    if (value === "/" || value === "/srs" || value === "/qr" || value === "/edcc" || value === "/history" || value === "/shb/qr" || value === "/shb/iso8583") {
         return value;
     }
 
@@ -165,6 +167,70 @@ function requireLabAuth(req, res, next) {
     }
 
     res.redirect("/login?next=" + encodeURIComponent(req.originalUrl));
+}
+
+function findManualApk() {
+    if (!fs.existsSync(DOWNLOAD_DIR)) {
+        return null;
+    }
+
+    const names = fs.readdirSync(DOWNLOAD_DIR).filter((name) => name.toLowerCase().endsWith(".apk"));
+
+    if (names.length === 0) {
+        return null;
+    }
+
+    names.sort((left, right) => {
+        return fs.statSync(path.join(DOWNLOAD_DIR, right)).mtimeMs - fs.statSync(path.join(DOWNLOAD_DIR, left)).mtimeMs;
+    });
+
+    const fileName = names[0];
+    const filePath = path.join(DOWNLOAD_DIR, fileName);
+    const stat = fs.statSync(filePath);
+
+    return {
+        fileName: fileName,
+        filePath: filePath,
+        size: stat.size
+    };
+}
+
+function sendManualApk(req, res) {
+    const query = req.query || {};
+
+    console.log(
+        "manual download",
+        req.method,
+        "tid=" + (query.tid || ""),
+        "schemeid=" + (query.schemeid || ""),
+        "serial=" + (query.serial || ""),
+        "version=" + (query.version || ""),
+        "zip=" + (query.zip || ""),
+        "finish=" + (query.finish || "")
+    );
+
+    if (String(query.finish || "") === "true") {
+        res.status(200);
+        res.setHeader("Content-Type", "text/plain");
+        res.setHeader("Content-Length", "2");
+        res.end("ok");
+        return;
+    }
+
+    const apk = findManualApk();
+
+    if (!apk) {
+        res.status(404);
+        res.setHeader("Content-Type", "text/plain");
+        res.end("APK not found");
+        return;
+    }
+
+    res.status(200);
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Content-Length", String(apk.size));
+    res.setHeader("Content-Disposition", "attachment; filename=\"" + apk.fileName.replace(/"/g, "") + "\"");
+    fs.createReadStream(apk.filePath).pipe(res);
 }
 
 function getClientIp(req) {
@@ -373,9 +439,39 @@ app.post("/api/devices", (req, res) => {
     }
 });
 
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 app.get("/devices", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "devices.html"));
 });
+
+app.get("/manual", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "manual.html"));
+});
+
+app.get("/api/manual-download", (req, res) => {
+    const apk = findManualApk();
+
+    if (!apk) {
+        res.json({
+            ready: false,
+            fileName: "",
+            size: 0
+        });
+        return;
+    }
+
+    res.json({
+        ready: true,
+        fileName: apk.fileName,
+        size: apk.size
+    });
+});
+
+app.all("/loadfile.aspx", sendManualApk);
+app.all("/titms/download/loadfile.aspx", sendManualApk);
 
 app.get("/login", (req, res) => {
     if (sessionToken(req) !== "") {

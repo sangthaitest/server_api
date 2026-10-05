@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+            color: #222;
+            background: #f7f7f7;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 24px;
+        }
+
+        .status {
+            margin: 0 0 16px;
+            color: #555;
+        }
+
+        ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            max-width: 720px;
+        }
+
+        li {
+            margin: 0 0 8px;
+            background: #fff;
+            border: 1px solid #ccc;
+        }
+
+        a {
+            display: block;
+            padding: 12px 14px;
+            color: #1a4f9c;
+            text-decoration: none;
+        }
+
+        a:hover {
+            background: #e8f1ff;
+        }
+
+        strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        span {
+            display: block;
+            color: #555;
+            font-size: 13px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>Menu</h1>
+    <p id="host" class="status"></p>
+    <ul id="menu"></ul>
+    <script>
+        var features = [
+            { name: "SRS Transactions", path: "/srs" },
+            { name: "QR Payments", path: "/qr" },
+            { name: "EDCC", path: "/edcc" },
+            { name: "EDCC History", path: "/history" },
+            { name: "SHBVN QR", path: "/shb/qr" },
+            { name: "ISO 8583", path: "/shb/iso8583" },
+            { name: "Devices", path: "/devices" },
+            { name: "Download Manual", path: "/manual" }
+        ];
+
+        var origin = window.location.origin;
+        document.getElementById("host").textContent = origin;
+        document.getElementById("menu").innerHTML = features.map(function (feature) {
+            var url = origin + feature.path;
+            return "<li><a href=\"" + feature.path + "\">" +
+                "<strong>" + feature.name + "</strong>" +
+                "<span>" + url + "</span>" +
+                "</a></li>";
+        }).join("");
+    </script>
+</body>
+</html>

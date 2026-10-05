@@ -1,4 +1,5 @@
 node_modules/
+download/*.apk
 .env
 *.log
 .server.pid
